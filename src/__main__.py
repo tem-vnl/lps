@@ -1,4 +1,8 @@
-def main():
-    print("Hello world.")
+from proctoring import Proctoring
 
-main()
+def main():
+    program = Proctoring()
+
+
+if __name__ == "__main__":
+    main()
