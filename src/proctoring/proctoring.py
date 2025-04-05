@@ -2,8 +2,11 @@
     Proctoring software class
 """
 
-from proctoring.eyetracker import Eyetracker
+from proctoring.gaze import Gaze
+from multiprocessing import Process
 
 class Proctoring(object):
     def __init__(self):
-        eyetracker = Eyetracker()
+
+        gaze = Process(target=Gaze)
+        gaze.start()

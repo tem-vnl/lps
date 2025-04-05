@@ -6,8 +6,23 @@ LPS is a lightweight proctoring software intended to be be used in for digital e
 
 ## Getting started
 
-Run the folloing command to install all necessary python packages (requires python3 and pipx)
-`cat requirements.txt | xargs pipx install --include-deps`
+This project is dependency managed by poetry, to get started first install poetry:
 
-Run the following command to make sure that all apps are in your PATH
-`pipx ensurepath`
+```shell
+pipx install poetry
+```
+
+Run the following command to install dependencies:
+__NOTE:__ dlib can take a long time to install, and requires cmake to be installed on your system.
+
+```shell
+poetry install
+```
+
+You can then start the application by running:
+
+```shell
+poetry run python src
+```
+
+Need to add any dependencies? Use poetry and do not install or edit dependencies manually.
