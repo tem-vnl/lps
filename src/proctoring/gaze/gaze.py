@@ -34,7 +34,7 @@ class Gaze(object):
         while self.active:
             _, self._frame = self._feed.read()
             self._analyze()
-            # self.visualise()
+            self.visualise()
 
             if cv.waitKeyEx(1) == 27:
                 break
@@ -58,16 +58,16 @@ class Gaze(object):
                 # Calculate difference between depth in face to identify face angle
                 face_left_depth, face_right_depth = landmarks[168].z - landmarks[156].z, landmarks[168].z - landmarks[383].z
                 face_width = (landmarks[156].x - landmarks[383].x)**2 + (landmarks[156].y - landmarks[383].y)**2
-                face_angle = ((face_left_depth - face_right_depth) * 90) / (face_width * 16)
+                face_angle = ((face_left_depth - face_right_depth) * 90) / (face_width * 20)
 
                 # Analyze eyes
                 left_eye_width = landmarks[133].x - landmarks[33].x
                 left_iris_percentage = (landmarks[468].x - landmarks[33].x) / left_eye_width
-                left_iris_angle = (left_iris_percentage - .4) * 140
+                left_iris_angle = (left_iris_percentage - .4) * 160
 
                 right_eye_width = landmarks[362].x - landmarks[263].x
                 right_iris_percentage = (landmarks[473].x - landmarks[263].x) / right_eye_width
-                right_iris_angle = -(right_iris_percentage - .4) * 140
+                right_iris_angle = -(right_iris_percentage - .4) * 160
 
                 average_iris_angle = (left_iris_angle + right_iris_angle) / 2
 
@@ -80,6 +80,9 @@ class Gaze(object):
                 elif self._gazeaway:
                     self._report()
                     self._gazeaway = False
+
+                # Visualize
+                cv.line(self._frame, (int(landmarks[168].x*w), int(landmarks[168].y*h)), (int(landmarks[168].x*w + 50* gaze_angle), int(landmarks[168].y*h)), (255, 100, 100), 3, 1, 0)
 
     
     def close(self):
