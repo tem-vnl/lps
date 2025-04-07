@@ -32,7 +32,7 @@ class Gaze(object):
         normal = np.cross(v1, v2)
         return normal / np.linalg.norm(normal)
     
-    def __init__(self, demo = False):
+    def __init__(self, queue, demo = False):
         self._feed = cv.VideoCapture(0)
         self._frame = None
         self._base_options = python.BaseOptions(model_asset_path=os.path.dirname(__file__) + '/models/face_landmarker_v2_with_blendshapes.task')
@@ -83,6 +83,7 @@ class Gaze(object):
             "g_normal": None
         }
         self._timer = None
+        self._queue = queue
         self.active = True
 
         if not self._feed.isOpened():
@@ -114,7 +115,7 @@ class Gaze(object):
             self._gazeaway = False
 
     def _report(self):
-        print("Gazeaway for {elapsed:.3f}s".format(elapsed = time.time() - self._timer))
+        self._queue.put(time.time() - self._timer)
 
     def _analyze(self):
         frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=self._frame)
