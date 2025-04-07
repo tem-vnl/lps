@@ -6,6 +6,7 @@ import os
 import cv2 as cv
 import mediapipe as mp
 import numpy as np
+import math
 import time
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -93,10 +94,10 @@ class Gaze(object):
         while self.active:
             _, self._frame = self._feed.read()
             self._analyze()
-            self._time()
-            
-            if demo:
-                self.visualise()
+            if self._track["g_normal"]:
+                self._time()
+                if demo:
+                    self.visualise()
 
             cv.waitKeyEx(1)
         
@@ -104,9 +105,8 @@ class Gaze(object):
         cv.destroyAllWindows()
 
     def _time(self):
-        z_norm_perc = abs(self._track["g_normal"][2] / np.linalg.norm(self._track["g_normal"]))
 
-        if z_norm_perc < 0.55:
+        if abs(self._track["g_normal"][0]) > 0.15:
             if not self._gazeaway:
                 self._timer = time.time()
             self._gazeaway = True
@@ -115,7 +115,9 @@ class Gaze(object):
             self._gazeaway = False
 
     def _report(self):
-        self._queue.put(time.time() - self._timer)
+        tdiff = time.time() - self._timer
+        if tdiff > 0.25:
+            self._queue.put(tdiff)
 
     def _analyze(self):
         frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=self._frame)
@@ -139,8 +141,8 @@ class Gaze(object):
                 self._track["leh_vector"] = self.lm_vector_from_to(self._track["lm_230"], self._track["lm_27"])
                 self._track["liw_vector"] = self.lm_vector_from_to(self._track["lm_468"], self._track["lm_33"])
                 self._track["lih_vector"] = self.lm_vector_from_to(self._track["lm_468"], self._track["lm_27"])
-                self._track["lgh_vector"] = (((self._track["liw_vector"][0] / self._track["lew_vector"][0]) - 0.425) / 0.2) * 90
-                self._track["lgv_vector"] = (((self._track["lih_vector"][1] / self._track["leh_vector"][1]) - 0.385) / 0.1) * 90
+                self._track["lgh_vector"] = (((self._track["liw_vector"][0] / self._track["lew_vector"][0]) - 0.4) / 0.2) * 90
+                self._track["lgv_vector"] = (((self._track["lih_vector"][1] / self._track["leh_vector"][1]) - 0.38) / 0.05) * 90
                 self._track["le_normal"] = self.theta_phi_to_unit_vector(self._track["lgv_vector"], self._track["lgh_vector"])
 
                 # Rough gaze vector of right eye
@@ -148,8 +150,8 @@ class Gaze(object):
                 self._track["reh_vector"] = self.lm_vector_from_to(self._track["lm_257"], self._track["lm_450"])
                 self._track["riw_vector"] = self.lm_vector_from_to(self._track["lm_473"], self._track["lm_263"])
                 self._track["rih_vector"] = self.lm_vector_from_to(self._track["lm_473"], self._track["lm_257"])
-                self._track["rgh_vector"] = (((self._track["riw_vector"][0] / self._track["rew_vector"][0]) - 0.425) / 0.2) * 90
-                self._track["rgv_vector"] = (((self._track["rih_vector"][1] / self._track["reh_vector"][1]) - 0.385) / 0.1) * 90
+                self._track["rgh_vector"] = (((self._track["riw_vector"][0] / self._track["rew_vector"][0]) - 0.4) / 0.2) * 90
+                self._track["rgv_vector"] = -(((self._track["rih_vector"][1] / self._track["reh_vector"][1]) - 0.38) / 0.05) * 90
                 self._track["re_normal"] = self.theta_phi_to_unit_vector(self._track["rgv_vector"], self._track["rgh_vector"])
                 
                 # Average left/right eye direction
@@ -185,5 +187,7 @@ class Gaze(object):
             cv.putText(result, "GAZEAWAY DETECTED", (35, 35), cv.FONT_HERSHEY_DUPLEX, 1, (147, 58, 31), 2)
         else:
             cv.putText(result, "FOCUSING", (35, 35), cv.FONT_HERSHEY_DUPLEX, 1, (147, 58, 31), 2)
+        cv.putText(result, f"XDIFF: {abs(self._track["g_normal"][0])}", (35, 65), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
+        cv.putText(result, f"YDUFF: {abs(self._track["g_normal"][1])}", (35, 95), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
         
         cv.imshow('_feed', result)
