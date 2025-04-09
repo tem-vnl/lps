@@ -118,6 +118,13 @@ class Gaze(object):
 
         if self._result.face_landmarks:
             for lm in self._result.face_landmarks:
+                """
+                    Head tracking points: 156 (left eye corner), 168 (center of face), 383 (right eye corner), 199 (center chin), 10 (center forehead)
+                    Left Eye tracking points: 33 (outer edge), 133 (inner edge), 27 (top), 230 (bottom)
+                    Right Eye tracking points: 263 (outer edge), 362 (inner edge), 257 (top), 450 (bottom)
+                    Center iris: 468 (left), 473 (right)
+                    Reference: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
+                """
                 # Extract and process landmarks
                 for i in [199, 156, 168, 33, 27, 468, 362, 257, 473, 10, 383, 133, 230, 263, 450]:
                     self._track["lm_" + str(i)] = lm[i]
