@@ -10,7 +10,7 @@ import time
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-class Gaze(object):
+class Gaze:
     """
     A class to handle gaze tracking using Mediapipe and OpenCV.
 
