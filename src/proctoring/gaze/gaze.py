@@ -11,31 +11,112 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 class Gaze(object):
+    """
+    A class to handle gaze tracking using Mediapipe and OpenCV.
+
+    Attributes:
+        _feed (cv.VideoCapture): Video capture object for accessing the webcam.
+        _frame (np.ndarray): Current video frame being processed.
+        _base_options (python.BaseOptions): Base options for Mediapipe face landmarker.
+        _options (vision.FaceLandmarkerOptions): Configuration options for the face landmarker.
+        _detector (vision.FaceLandmarker): Mediapipe face landmarker object.
+        _result (Any): Result of the face landmark detection.
+        _gazeaway (bool): Indicates whether the user is looking away.
+        _track (dict): Dictionary to store tracking data for facial landmarks and vectors.
+        _timer (float): Timer to measure the duration of gaze-away events.
+        _queue (multiprocessing.Queue): Queue for sending gaze-away duration to the main process.
+        active (bool): Indicates whether the gaze tracking process is active.
+    """
+
     @staticmethod
     def theta_phi_to_unit_vector(theta, phi):
-        return (np.sin(phi * np.pi / 180)*np.cos(theta * np.pi / 180), np.sin(phi * np.pi / 180)*np.sin(theta * np.pi / 180), np.cos(theta * np.pi / 180))
+        """
+        Converts spherical coordinates (theta, phi) to a unit vector.
+
+        Args:
+            theta (float): Horizontal angle in degrees.
+            phi (float): Vertical angle in degrees.
+
+        Returns:
+            tuple: A unit vector (x, y, z).
+        """
+        return (np.sin(phi * np.pi / 180)*np.cos(theta * np.pi / 180), 
+                np.sin(phi * np.pi / 180)*np.sin(theta * np.pi / 180), 
+                np.cos(phi * np.pi / 180))
 
     @staticmethod
     def lm_to_int_2d_add(lm, v, w, h):
+        """
+        Converts a landmark to 2D integer coordinates with an offset.
+
+        Args:
+            lm (object): Landmark object with x and y attributes.
+            v (tuple): Offset vector (x, y).
+            w (int): Frame width.
+            h (int): Frame height.
+
+        Returns:
+            tuple: 2D integer coordinates (x, y).
+        """
         return (int((lm.x + v[0])*w), int((lm.y + v[1])*h))
 
     @staticmethod
     def lm_to_int_2d(lm, w, h):
+        """
+        Converts a landmark to 2D integer coordinates.
+
+        Args:
+            lm (object): Landmark object with x and y attributes.
+            w (int): Frame width.
+            h (int): Frame height.
+
+        Returns:
+            tuple: 2D integer coordinates (x, y).
+        """
         return (int(lm.x*w), int(lm.y*h))
     
     @staticmethod
     def lm_vector_from_to(a, b):
+        """
+        Calculates the vector from one landmark to another.
+
+        Args:
+            a (object): Starting landmark with x, y, z attributes.
+            b (object): Ending landmark with x, y, z attributes.
+
+        Returns:
+            list: Vector [dx, dy, dz].
+        """
         return [a.x - b.x, a.y - b.y, a.z - b.z]
 
     @staticmethod
     def unit_vector_cross(v1, v2):
+        """
+        Calculates the unit vector of the cross product of two vectors.
+
+        Args:
+            v1 (list): First vector.
+            v2 (list): Second vector.
+
+        Returns:
+            np.ndarray: Unit vector of the cross product.
+        """
         normal = np.cross(v1, v2)
         return normal / np.linalg.norm(normal)
     
-    def __init__(self, queue, demo = False):
+    def __init__(self, queue, demo=False):
+        """
+        Initializes the Gaze class.
+
+        Args:
+            queue (multiprocessing.Queue): Queue for sending gaze-away duration to the main process.
+            demo (bool): Whether to run in demo mode with visualization.
+        """
         self._feed = cv.VideoCapture(0)
         self._frame = None
-        self._base_options = python.BaseOptions(model_asset_path=os.path.dirname(__file__) + '/models/face_landmarker_v2_with_blendshapes.task')
+        self._base_options = python.BaseOptions(
+            model_asset_path=os.path.dirname(__file__) + "/models/face_landmarker_v2_with_blendshapes.task"
+        )
         self._options = vision.FaceLandmarkerOptions(
             base_options=self._base_options,
             output_face_blendshapes=True,
@@ -47,47 +128,23 @@ class Gaze(object):
         self._result = None
         self._gazeaway = False
         self._track = {
-            "lm_199": None,
-            "lm_156": None,
-            "lm_168": None,
-            "lm_33": None,
-            "lm_27": None,
-            "lm_468": None,
-            "lm_362": None,
-            "lm_257": None,
-            "lm_473": None,
-            "lm_10": None,
-            "lm_383": None,
-            "lm_133": None,
-            "lm_230": None,
-            "lm_263": None,
-            "lm_450": None,
-            "vf_vector": None,
-            "hf_vector": None,
-            "f_normal": None,
-            "lew_vector": None,
-            "leh_vector": None,
-            "liw_vector": None,
-            "lih_vector": None,
-            "lgh_vector": None,
-            "lgv_vector": None,
-            "le_normal": None,
-            "rew_vector": None,
-            "reh_vector": None,
-            "riw_vector": None,
-            "rih_vector": None,
-            "rgh_vector": None,
-            "rgv_vector": None,
-            "re_normal": None,
-            "e_normal": None,
-            "g_normal": None
+            # Tracking data for facial landmarks and vectors
+            "lm_199": None, "lm_156": None, "lm_168": None, "lm_33": None, "lm_27": None,
+            "lm_468": None, "lm_362": None, "lm_257": None, "lm_473": None, "lm_10": None,
+            "lm_383": None, "lm_133": None, "lm_230": None, "lm_263": None, "lm_450": None,
+            "vf_vector": None, "hf_vector": None, "f_normal": None,
+            "lew_vector": None, "leh_vector": None, "liw_vector": None, "lih_vector": None,
+            "lgh_vector": None, "lgv_vector": None, "le_normal": None,
+            "rew_vector": None, "reh_vector": None, "riw_vector": None, "rih_vector": None,
+            "rgh_vector": None, "rgv_vector": None, "re_normal": None,
+            "e_normal": None, "g_normal": None
         }
         self._timer = None
         self._queue = queue
         self.active = True
 
         if not self._feed.isOpened():
-            RuntimeError('Could not open videostream')
+            RuntimeError("Could not open videostream")
             exit
 
         while self.active:
@@ -104,7 +161,9 @@ class Gaze(object):
         cv.destroyAllWindows()
 
     def _time(self):
-
+        """
+        Tracks the duration of gaze-away events and triggers reporting.
+        """
         if abs(self._track["g_normal"][0]) > 0.15 or abs(self._track["g_normal"][1]) > 0.2:
             if not self._gazeaway:
                 self._timer = time.time()
@@ -114,20 +173,23 @@ class Gaze(object):
             self._gazeaway = False
 
     def _report(self):
+        """
+        Reports the duration of a gaze-away event to the main process.
+        """
         tdiff = time.time() - self._timer
         if tdiff > 0.25:
             self._queue.put(tdiff)
 
     def _analyze(self):
+        """
+        Analyzes the current video frame to extract facial landmarks and calculate gaze vectors.
+        """
         frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=self._frame)
         self._result = self._detector.detect(frame)
-        # Head tracking points: 156 (left eye corner), 168 (center of face), 383 (right eye corner), 199 (center chin), 10 (center forehead)
-        # Left Eye tracking points: 33 (outer edge), 133 (inner edge), 27 (top), 230 (bottom)
-        # Right Eye tracking points: 263 (outer edge), 362 (inner edge), 257 (top), 450 (bottom)
-        # Center iris: 468 (left), 473 (right)
 
         if self._result.face_landmarks:
             for lm in self._result.face_landmarks:
+                # Extract and process landmarks
                 for i in [199, 156, 168, 33, 27, 468, 362, 257, 473, 10, 383, 133, 230, 263, 450]:
                     self._track["lm_" + str(i)] = lm[i]
                 # Calculate difference between depth in face to identify face angle
@@ -160,9 +222,15 @@ class Gaze(object):
                 self._track["g_normal"] = tuple( i / 2 for i in (self._track["e_normal"][0:3] + self._track["f_normal"]))
 
     def close(self):
+        """
+        Stops the gaze tracking process.
+        """
         self.active = False
 
     def visualise(self):
+        """
+        Visualizes the gaze tracking results on the video feed.
+        """
         h, w = self._frame.shape[:2]
         overlay = self._frame.copy()
 
@@ -189,4 +257,4 @@ class Gaze(object):
         cv.putText(result, f"XDIFF: {abs(self._track["g_normal"][0])}", (35, 65), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
         cv.putText(result, f"YDIFF: {abs(self._track["g_normal"][1])}", (35, 95), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
         
-        cv.imshow('_feed', result)
+        cv.imshow("_feed", result)

@@ -5,11 +5,24 @@
 from proctoring.gaze import Gaze
 from multiprocessing import Process, Queue
 
-class Proctoring(object):
-    def __init__(self, demo):
+class Proctoring:
+    """
+    A class to handle proctoring functionality.
+
+    Attributes:
+        demo (bool): Whether the program is running in demo mode.
+    """
+
+    def __init__(self, demo: bool = False):
+        """
+        Initialize the Proctoring system.
+
+        Args:
+            demo (bool): Run in demo mode if True.
+        """
         self.gaze_queue = Queue()
 
-        gaze = Process(target=self.run_gaze, args=(self.gaze_queue,demo,))
+        gaze = Process(target=self.run_gaze, args=(self.gaze_queue, demo,))
         gaze.start()
         gaze_recieve = Process(target=self.listen_for_gaze)
         gaze_recieve.start()
