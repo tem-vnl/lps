@@ -25,85 +25,10 @@ class Gaze(object):
         _track (dict): Dictionary to store tracking data for facial landmarks and vectors.
         _timer (float): Timer to measure the duration of gaze-away events.
         _queue (multiprocessing.Queue): Queue for sending gaze-away duration to the main process.
+        _x_threshold (float): Threshold in x direction for gazeaway trigger.
+        _y_threshold (float): Threshold in y direction for gazeaway trigger.
         active (bool): Indicates whether the gaze tracking process is active.
-    """
-
-    @staticmethod
-    def theta_phi_to_unit_vector(theta, phi):
-        """
-        Converts spherical coordinates (theta, phi) to a unit vector.
-
-        Args:
-            theta (float): Horizontal angle in degrees.
-            phi (float): Vertical angle in degrees.
-
-        Returns:
-            tuple: A unit vector (x, y, z).
-        """
-        return (np.sin(phi * np.pi / 180)*np.cos(theta * np.pi / 180), 
-                np.sin(phi * np.pi / 180)*np.sin(theta * np.pi / 180), 
-                np.cos(phi * np.pi / 180))
-
-    @staticmethod
-    def lm_to_int_2d_add(lm, v, w, h):
-        """
-        Converts a landmark to 2D integer coordinates with an offset.
-
-        Args:
-            lm (object): Landmark object with x and y attributes.
-            v (tuple): Offset vector (x, y).
-            w (int): Frame width.
-            h (int): Frame height.
-
-        Returns:
-            tuple: 2D integer coordinates (x, y).
-        """
-        return (int((lm.x + v[0])*w), int((lm.y + v[1])*h))
-
-    @staticmethod
-    def lm_to_int_2d(lm, w, h):
-        """
-        Converts a landmark to 2D integer coordinates.
-
-        Args:
-            lm (object): Landmark object with x and y attributes.
-            w (int): Frame width.
-            h (int): Frame height.
-
-        Returns:
-            tuple: 2D integer coordinates (x, y).
-        """
-        return (int(lm.x*w), int(lm.y*h))
-    
-    @staticmethod
-    def lm_vector_from_to(a, b):
-        """
-        Calculates the vector from one landmark to another.
-
-        Args:
-            a (object): Starting landmark with x, y, z attributes.
-            b (object): Ending landmark with x, y, z attributes.
-
-        Returns:
-            list: Vector [dx, dy, dz].
-        """
-        return [a.x - b.x, a.y - b.y, a.z - b.z]
-
-    @staticmethod
-    def unit_vector_cross(v1, v2):
-        """
-        Calculates the unit vector of the cross product of two vectors.
-
-        Args:
-            v1 (list): First vector.
-            v2 (list): Second vector.
-
-        Returns:
-            np.ndarray: Unit vector of the cross product.
-        """
-        normal = np.cross(v1, v2)
-        return normal / np.linalg.norm(normal)
-    
+    """    
     def __init__(self, queue, demo=False):
         """
         Initializes the Gaze class.
@@ -142,10 +67,11 @@ class Gaze(object):
         self._timer = None
         self._queue = queue
         self.active = True
+        self._x_threshold = 0.15
+        self._y_threshold = 0.2
 
         if not self._feed.isOpened():
-            RuntimeError("Could not open videostream")
-            exit
+            raise RuntimeError("Could not open videostream")
 
         while self.active:
             _, self._frame = self._feed.read()
@@ -164,7 +90,7 @@ class Gaze(object):
         """
         Tracks the duration of gaze-away events and triggers reporting.
         """
-        if abs(self._track["g_normal"][0]) > 0.15 or abs(self._track["g_normal"][1]) > 0.2:
+        if abs(self._track["g_normal"][0]) > self._x_threshold or abs(self._track["g_normal"][1]) > self._y_threshold:
             if not self._gazeaway:
                 self._timer = time.time()
             self._gazeaway = True
@@ -178,7 +104,10 @@ class Gaze(object):
         """
         tdiff = time.time() - self._timer
         if tdiff > 0.25:
-            self._queue.put(tdiff)
+            try:
+                self._queue.put(tdiff)
+            except Exception as e:
+                print(f"Error sending data to queue: {e}")
 
     def _analyze(self):
         """
@@ -258,3 +187,79 @@ class Gaze(object):
         cv.putText(result, f"YDIFF: {abs(self._track["g_normal"][1])}", (35, 95), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
         
         cv.imshow("_feed", result)
+    
+    @staticmethod
+    def theta_phi_to_unit_vector(theta, phi):
+        """
+        Converts spherical coordinates (theta, phi) to a unit vector.
+
+        Args:
+            theta (float): Horizontal angle in degrees.
+            phi (float): Vertical angle in degrees.
+
+        Returns:
+            tuple: A unit vector (x, y, z).
+        """
+        return (np.sin(phi * np.pi / 180)*np.cos(theta * np.pi / 180), 
+                np.sin(phi * np.pi / 180)*np.sin(theta * np.pi / 180), 
+                np.cos(phi * np.pi / 180))
+
+    @staticmethod
+    def lm_to_int_2d_add(lm, v, w, h):
+        """
+        Converts a landmark to 2D integer coordinates with an offset.
+
+        Args:
+            lm (object): Landmark object with x and y attributes.
+            v (tuple): Offset vector (x, y).
+            w (int): Frame width.
+            h (int): Frame height.
+
+        Returns:
+            tuple: 2D integer coordinates (x, y).
+        """
+        return (int((lm.x + v[0])*w), int((lm.y + v[1])*h))
+
+    @staticmethod
+    def lm_to_int_2d(lm, w, h):
+        """
+        Converts a landmark to 2D integer coordinates.
+
+        Args:
+            lm (object): Landmark object with x and y attributes.
+            w (int): Frame width.
+            h (int): Frame height.
+
+        Returns:
+            tuple: 2D integer coordinates (x, y).
+        """
+        return (int(lm.x*w), int(lm.y*h))
+    
+    @staticmethod
+    def lm_vector_from_to(a, b):
+        """
+        Calculates the vector from one landmark to another.
+
+        Args:
+            a (object): Starting landmark with x, y, z attributes.
+            b (object): Ending landmark with x, y, z attributes.
+
+        Returns:
+            list: Vector [dx, dy, dz].
+        """
+        return [a.x - b.x, a.y - b.y, a.z - b.z]
+
+    @staticmethod
+    def unit_vector_cross(v1, v2):
+        """
+        Calculates the unit vector of the cross product of two vectors.
+
+        Args:
+            v1 (list): First vector.
+            v2 (list): Second vector.
+
+        Returns:
+            np.ndarray: Unit vector of the cross product.
+        """
+        normal = np.cross(v1, v2)
+        return normal / np.linalg.norm(normal)
