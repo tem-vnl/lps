@@ -33,6 +33,14 @@ Need to add any dependencies? Use poetry and do not install or edit dependencies
 
 If you are running into problems with VS Code python interpreter not picking up your poetry environment, please check the [help section](#vs-code-python-interpreter-with-poetry).
 
+## Testing
+
+This project uses pytest for automated testing. To run the tests locally:
+
+```bash
+pytest
+```
+
 ## Help
 
 ### VS Code python interpreter with poetry

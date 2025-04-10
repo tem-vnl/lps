@@ -131,25 +131,25 @@ class Gaze:
                 for i in self.LANDMARK_INDICES:
                     self._track["lm_" + str(i)] = lm[i]
                 # Calculate difference between depth in face to identify face angle
-                self._track["vf_vector"] = self.lm_vector_from_to(self._track["lm_10"], self._track["lm_199"])
-                self._track["hf_vector"] = self.lm_vector_from_to(self._track["lm_383"], self._track["lm_156"])
+                self._track["vf_vector"] = self.lm_vector_from_to(self._track["lm_199"], self._track["lm_10"])
+                self._track["hf_vector"] = self.lm_vector_from_to(self._track["lm_156"], self._track["lm_383"])
                 self._track["f_normal"] = self.unit_vector_cross(self._track["hf_vector"], self._track["vf_vector"])
 
                 # Rough gaze vector of left eye
-                self._track["lew_vector"] = self.lm_vector_from_to(self._track["lm_133"], self._track["lm_33"])
+                self._track["lew_vector"] = self.lm_vector_from_to(self._track["lm_33"], self._track["lm_133"])
                 self._track["leh_vector"] = self.lm_vector_from_to(self._track["lm_230"], self._track["lm_27"])
-                self._track["liw_vector"] = self.lm_vector_from_to(self._track["lm_468"], self._track["lm_33"])
+                self._track["liw_vector"] = self.lm_vector_from_to(self._track["lm_33"], self._track["lm_468"])
                 self._track["lih_vector"] = self.lm_vector_from_to(self._track["lm_468"], self._track["lm_27"])
-                self._track["lgh_vector"] = (((self._track["liw_vector"][0] / self._track["lew_vector"][0]) - 0.4) / 0.2) * 90
+                self._track["lgh_vector"] = (((self._track["liw_vector"][0] / self._track["lew_vector"][0]) - 0.39) / 0.15) * 90
                 self._track["lgv_vector"] = (((self._track["lih_vector"][1] / self._track["leh_vector"][1]) - 0.38) / 0.2) * 90
                 self._track["le_normal"] = self.theta_phi_to_unit_vector(self._track["lgv_vector"], self._track["lgh_vector"])
 
                 # Rough gaze vector of right eye
-                self._track["rew_vector"] = self.lm_vector_from_to(self._track["lm_263"], self._track["lm_362"])
+                self._track["rew_vector"] = self.lm_vector_from_to(self._track["lm_362"], self._track["lm_263"])
                 self._track["reh_vector"] = self.lm_vector_from_to(self._track["lm_450"], self._track["lm_257"])
                 self._track["riw_vector"] = self.lm_vector_from_to(self._track["lm_473"], self._track["lm_263"])
                 self._track["rih_vector"] = self.lm_vector_from_to(self._track["lm_473"], self._track["lm_257"])
-                self._track["rgh_vector"] = (((self._track["riw_vector"][0] / self._track["rew_vector"][0]) - 0.4) / 0.2) * 90
+                self._track["rgh_vector"] = (((self._track["riw_vector"][0] / self._track["rew_vector"][0]) - 0.39) / 0.15) * 90
                 self._track["rgv_vector"] = (((self._track["rih_vector"][1] / self._track["reh_vector"][1]) - 0.38) / 0.2) * 90
                 self._track["re_normal"] = self.theta_phi_to_unit_vector(self._track["rgv_vector"], self._track["rgh_vector"])
                 
@@ -178,7 +178,7 @@ class Gaze:
         cv.line(overlay, self.lm_to_int_2d(self._track["lm_168"], w, h), self.lm_to_int_2d_add(self._track["lm_168"], self._track["f_normal"], w, h), (205,105,105, 0.1), 2, 1, 0)
 
         cv.line(overlay, self.lm_to_int_2d(self._track["lm_33"], w, h), self.lm_to_int_2d_add(self._track["lm_33"], self._track["lew_vector"], w, h), (255,255,0), 1, 1, 0)
-        cv.line(overlay, self.lm_to_int_2d(self._track["lm_27"], w, h), self.lm_to_int_2d_add(self._track["lm_27"], self._track["leh_vector"], w, h), (255,255,0), 1, 1, 0)
+        cv.line(overlay, self.lm_to_int_2d(self._track["lm_230"], w, h), self.lm_to_int_2d_add(self._track["lm_230"], self._track["leh_vector"], w, h), (255,255,0), 1, 1, 0)
         cv.line(overlay, self.lm_to_int_2d(self._track["lm_468"], w, h), self.lm_to_int_2d_add(self._track["lm_27"], self._track["e_normal"], w, h), (255,255,0), 1, 1, 0)
 
         cv.line(overlay, self.lm_to_int_2d(self._track["lm_362"], w, h), self.lm_to_int_2d_add(self._track["lm_362"], self._track["rew_vector"], w, h), (255,255,0), 1, 1, 0)
@@ -256,7 +256,7 @@ class Gaze:
         Returns:
             list: Vector [dx, dy, dz].
         """
-        return [a.x - b.x, a.y - b.y, a.z - b.z]
+        return [b.x - a.x, b.y - a.y, b.z - a.z]
 
     @staticmethod
     def unit_vector_cross(v1, v2):
