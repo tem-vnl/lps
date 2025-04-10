@@ -25,10 +25,14 @@ class Gaze:
         _track (dict): Dictionary to store tracking data for facial landmarks and vectors.
         _timer (float): Timer to measure the duration of gaze-away events.
         _queue (multiprocessing.Queue): Queue for sending gaze-away duration to the main process.
-        _x_threshold (float): Threshold in x direction for gazeaway trigger.
-        _y_threshold (float): Threshold in y direction for gazeaway trigger.
         active (bool): Indicates whether the gaze tracking process is active.
-    """    
+    """
+
+    LANDMARK_INDICES = [199, 156, 168, 33, 27, 468, 362, 257, 473, 10, 383, 133, 230, 263, 450]
+    DEFAULT_X_THRESHOLD = 0.15
+    DEFAULT_Y_THRESHOLD = 0.2
+    MIN_GAZE_DURATION = 0.25
+
     def __init__(self, queue, demo=False):
         """
         Initializes the Gaze class.
@@ -66,20 +70,18 @@ class Gaze:
         }
         self._timer = None
         self._queue = queue
-        self.active = True
-        self._x_threshold = 0.15
-        self._y_threshold = 0.2
+        self._active = True
 
         if not self._feed.isOpened():
             raise RuntimeError("Could not open videostream")
 
-        while self.active:
+        while self._active:
             _, self._frame = self._feed.read()
             self._analyze()
             if self._track["g_normal"]:
                 self._time()
                 if demo:
-                    self.visualise()
+                    self._visualise()
 
             cv.waitKeyEx(1)
         
@@ -90,7 +92,7 @@ class Gaze:
         """
         Tracks the duration of gaze-away events and triggers reporting.
         """
-        if abs(self._track["g_normal"][0]) > self._x_threshold or abs(self._track["g_normal"][1]) > self._y_threshold:
+        if abs(self._track["g_normal"][0]) > self.DEFAULT_X_THRESHOLD or abs(self._track["g_normal"][1]) > self.DEFAULT_Y_THRESHOLD:
             if not self._gazeaway:
                 self._timer = time.time()
             self._gazeaway = True
@@ -103,7 +105,7 @@ class Gaze:
         Reports the duration of a gaze-away event to the main process.
         """
         tdiff = time.time() - self._timer
-        if tdiff > 0.25:
+        if tdiff > self.MIN_GAZE_DURATION:
             try:
                 self._queue.put(tdiff)
             except Exception as e:
@@ -126,7 +128,7 @@ class Gaze:
                     Reference: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
                 """
                 # Extract and process landmarks
-                for i in [199, 156, 168, 33, 27, 468, 362, 257, 473, 10, 383, 133, 230, 263, 450]:
+                for i in self.LANDMARK_INDICES:
                     self._track["lm_" + str(i)] = lm[i]
                 # Calculate difference between depth in face to identify face angle
                 self._track["vf_vector"] = self.lm_vector_from_to(self._track["lm_10"], self._track["lm_199"])
@@ -161,9 +163,9 @@ class Gaze:
         """
         Stops the gaze tracking process.
         """
-        self.active = False
+        self._active = False
 
-    def visualise(self):
+    def _visualise(self):
         """
         Visualizes the gaze tracking results on the video feed.
         """
