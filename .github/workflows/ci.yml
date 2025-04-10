@@ -17,16 +17,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest
         pip install -e .
-        
-    - name: Install OpenCV
-      run: |
-        pip install opencv-python
-        
-    - name: Install MediaPipe
-      run: |
-        pip install mediapipe
         
     - name: Run tests
       run: |
