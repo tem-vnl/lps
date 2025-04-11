@@ -2,7 +2,11 @@
 
 ## Description
 
-LPS is a lightweight proctoring software intended to be be used in for digital examinations. This repository contains a proof of concept of the client side application. When running, the proctoring software will monitor the users gaze to prevent external devices from being used, combined with monitoring running software on the system used for taking the exam. Upon completing an exam, a report will be generated containging timestamped entries for when users gazed away for noticable periods of time, and for applications started and stopped, including browser tabs.
+LPS is a lightweight proctoring software intended to be be used for digital examinations. This repository contains a proof of concept of the client side application. When running, the proctoring software will monitor the users gaze to prevent external devices from being used, combined with supplying a safe browser window for the user to complete the exam in. Tabs in this browser will be monitored and all other applications will be temporarily blocked from using the network. Upon completing an exam, a report will be generated containging timestamped entries for when users gazed away for noticable periods of time, and for url:s visited that are not whitelisted.
+
+## Project plan
+
+[Overleaf document *view-only](https://www.overleaf.com/read/tkbgctjyxbqk#17af24)
 
 ## Getting started
 
@@ -28,6 +32,14 @@ poetry run python src
 Need to add any dependencies? Use poetry and do not install or edit dependencies manually.
 
 If you are running into problems with VS Code python interpreter not picking up your poetry environment, please check the [help section](#vs-code-python-interpreter-with-poetry).
+
+## Testing
+
+This project uses pytest for automated testing. To run the tests locally:
+
+```bash
+pytest
+```
 
 ## Help
 
