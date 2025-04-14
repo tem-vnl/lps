@@ -30,7 +30,7 @@ class Gaze:
 
     LANDMARK_INDICES = [199, 156, 168, 33, 27, 468, 362, 257, 473, 10, 383, 133, 230, 263, 450]
     DEFAULT_X_THRESHOLD = 0.15
-    DEFAULT_Y_THRESHOLD = 0.2
+    DEFAULT_Y_THRESHOLD = 0.1
     MIN_GAZE_DURATION = 0.25
 
     def __init__(self, queue, demo=False):
@@ -56,17 +56,17 @@ class Gaze:
         self._detector = vision.FaceLandmarker.create_from_options(self._options)
         self._result = None
         self._gazeaway = False
+        self._frames = 0
         self._track = {
             # Tracking data for facial landmarks and vectors
             "lm_199": None, "lm_156": None, "lm_168": None, "lm_33": None, "lm_27": None,
             "lm_468": None, "lm_362": None, "lm_257": None, "lm_473": None, "lm_10": None,
             "lm_383": None, "lm_133": None, "lm_230": None, "lm_263": None, "lm_450": None,
             "vf_vector": None, "hf_vector": None, "f_normal": None,
-            "lew_vector": None, "leh_vector": None, "liw_vector": None, "lih_vector": None,
-            "lgh_vector": None, "lgv_vector": None, "le_normal": None,
-            "rew_vector": None, "reh_vector": None, "riw_vector": None, "rih_vector": None,
-            "rgh_vector": None, "rgv_vector": None, "re_normal": None,
-            "e_normal": None, "g_normal": None
+            "left_iris_x_space": None, "right_iris_x_space": None, "eye_x_diff": None, "eye_x_normal": None,
+            "left_iris_y_space": None, "right_iris_y_space": None, "eye_y_diff": None, "eye_y_normal": None,
+            "y_running_average": 0,
+            "g_normal": None
         }
         self._timer = None
         self._queue = queue
@@ -77,6 +77,7 @@ class Gaze:
 
         while self._active:
             _, self._frame = self._feed.read()
+            self._frames += 1
             self._analyze()
             if self._track["g_normal"]:
                 self._time()
@@ -130,34 +131,32 @@ class Gaze:
                 # Extract and process landmarks
                 for i in self.LANDMARK_INDICES:
                     self._track["lm_" + str(i)] = lm[i]
-                # Calculate difference between depth in face to identify face angle
+                # Extract vertical and horizontal face vector, cross product to create normal
                 self._track["vf_vector"] = self.lm_vector_from_to(self._track["lm_199"], self._track["lm_10"])
                 self._track["hf_vector"] = self.lm_vector_from_to(self._track["lm_156"], self._track["lm_383"])
                 self._track["f_normal"] = self.unit_vector_cross(self._track["hf_vector"], self._track["vf_vector"])
 
-                # Rough gaze vector of left eye
-                self._track["lew_vector"] = self.lm_vector_from_to(self._track["lm_33"], self._track["lm_133"])
-                self._track["leh_vector"] = self.lm_vector_from_to(self._track["lm_230"], self._track["lm_27"])
-                self._track["liw_vector"] = self.lm_vector_from_to(self._track["lm_33"], self._track["lm_468"])
-                self._track["lih_vector"] = self.lm_vector_from_to(self._track["lm_468"], self._track["lm_27"])
-                self._track["lgh_vector"] = (((self._track["liw_vector"][0] / self._track["lew_vector"][0]) - 0.39) / 0.15) * 90
-                self._track["lgv_vector"] = (((self._track["lih_vector"][1] / self._track["leh_vector"][1]) - 0.38) / 0.2) * 90
-                self._track["le_normal"] = self.theta_phi_to_unit_vector(self._track["lgv_vector"], self._track["lgh_vector"])
+                # Difference in distance to center of face from the left and right iris, use to calculate vertical gaze vector
+                self._track["left_iris_x_space"] = self._track["lm_133"].x - self._track["lm_468"].x
+                self._track["right_iris_x_space"] = self._track["lm_362"].x - self._track["lm_473"].x
+                self._track["eye_x_diff"] = (self._track["left_iris_x_space"] + self._track["right_iris_x_space"]) / 0.03
+                self._track["eye_x_normal"] = self.rh_to_screenspace(self.theta_phi_to_unit_vector(self._track["eye_x_diff"] * -90, 90))
 
-                # Rough gaze vector of right eye
-                self._track["rew_vector"] = self.lm_vector_from_to(self._track["lm_362"], self._track["lm_263"])
-                self._track["reh_vector"] = self.lm_vector_from_to(self._track["lm_450"], self._track["lm_257"])
-                self._track["riw_vector"] = self.lm_vector_from_to(self._track["lm_473"], self._track["lm_263"])
-                self._track["rih_vector"] = self.lm_vector_from_to(self._track["lm_473"], self._track["lm_257"])
-                self._track["rgh_vector"] = (((self._track["riw_vector"][0] / self._track["rew_vector"][0]) - 0.39) / 0.15) * 90
-                self._track["rgv_vector"] = (((self._track["rih_vector"][1] / self._track["reh_vector"][1]) - 0.38) / 0.2) * 90
-                self._track["re_normal"] = self.theta_phi_to_unit_vector(self._track["rgv_vector"], self._track["rgh_vector"])
+                # Get average height of eye tracking points, calculate the iris position compared to total height, keep track of average neutral eye position
+                self._track["eye_y_total"] = (self._track["lm_230"].y + self._track["lm_450"].y - self._track["lm_27"].y - self._track["lm_257"].y) / 2
+                self._track["eye_y_iris"] = (self._track["lm_230"].y + self._track["lm_450"].y - self._track["lm_468"].y - self._track["lm_473"].y) / 2
+                self._track["eye_y_diff"] = self._track["eye_y_iris"] / self._track["eye_y_total"]
+                self._track["y_running_average"] += (self._track["eye_y_diff"] - self._track["y_running_average"]) / self._frames
+
+                # Calculate horizontal gaze vector based on iris y-diff compared to running y-average
+                self._track["eye_y_normal"] = self.rh_to_screenspace(self.theta_phi_to_unit_vector(0, 90 + ((self._track["eye_y_diff"] - self._track["y_running_average"]) / 0.01)))
                 
-                # Average left/right eye direction
-                self._track["e_normal"] = tuple( i / 2 for i in (self._track["le_normal"] + self._track["re_normal"]))
-
-                # Calculate vector based on face-normal +/- average eye normal
-                self._track["g_normal"] = tuple( i / 2 for i in (self._track["e_normal"][0:3] + self._track["f_normal"]))
+                # Calculate vector based on face-normal +/- average eye normals
+                self._track["g_normal"] = tuple(i for i in (
+                    (self._track["f_normal"][0] + self._track["eye_x_normal"][0]) / 2,
+                    (self._track["f_normal"][1] + self._track["eye_y_normal"][1]) / 2,
+                    (self._track["f_normal"][2] + self._track["eye_x_normal"][2] + self._track["eye_y_normal"][2]) / 3)
+                )
 
     def close(self):
         """
@@ -177,13 +176,12 @@ class Gaze:
         cv.line(overlay, self.lm_to_int_2d(self._track["lm_156"], w, h), self.lm_to_int_2d_add(self._track["lm_156"], self._track["hf_vector"], w, h), (255,255,0, 0.1), 1, 1, 0)
         cv.line(overlay, self.lm_to_int_2d(self._track["lm_168"], w, h), self.lm_to_int_2d_add(self._track["lm_168"], self._track["f_normal"], w, h), (205,105,105, 0.1), 2, 1, 0)
 
-        cv.line(overlay, self.lm_to_int_2d(self._track["lm_33"], w, h), self.lm_to_int_2d_add(self._track["lm_33"], self._track["lew_vector"], w, h), (255,255,0), 1, 1, 0)
-        cv.line(overlay, self.lm_to_int_2d(self._track["lm_230"], w, h), self.lm_to_int_2d_add(self._track["lm_230"], self._track["leh_vector"], w, h), (255,255,0), 1, 1, 0)
-        cv.line(overlay, self.lm_to_int_2d(self._track["lm_468"], w, h), self.lm_to_int_2d_add(self._track["lm_27"], self._track["e_normal"], w, h), (255,255,0), 1, 1, 0)
-
-        cv.line(overlay, self.lm_to_int_2d(self._track["lm_362"], w, h), self.lm_to_int_2d_add(self._track["lm_362"], self._track["rew_vector"], w, h), (255,255,0), 1, 1, 0)
-        cv.line(overlay, self.lm_to_int_2d(self._track["lm_450"], w, h), self.lm_to_int_2d_add(self._track["lm_450"], self._track["reh_vector"], w, h), (255,255,0), 1, 1, 0)
-        cv.line(overlay, self.lm_to_int_2d(self._track["lm_473"], w, h), self.lm_to_int_2d_add(self._track["lm_473"], self._track["e_normal"], w, h), (255,255,0), 1, 1, 0)
+        cv.circle(overlay, self.lm_to_int_2d(self._track["lm_468"], w, h), 2, (255,255,0, 0.1), 1, 1, 0)
+        cv.circle(overlay, self.lm_to_int_2d(self._track["lm_473"], w, h), 2, (255,255,0, 0.1), 1, 1, 0)
+        cv.line(overlay, self.lm_to_int_2d(self._track["lm_468"], w, h), self.lm_to_int_2d_add(self._track["lm_468"], self._track["eye_x_normal"], w, h), (255,255,0, 0.1), 1, 1, 0)
+        cv.line(overlay, self.lm_to_int_2d(self._track["lm_473"], w, h), self.lm_to_int_2d_add(self._track["lm_473"], self._track["eye_x_normal"], w, h), (255,255,0, 0.1), 1, 1, 0)
+        cv.line(overlay, self.lm_to_int_2d(self._track["lm_468"], w, h), self.lm_to_int_2d_add(self._track["lm_468"], self._track["eye_y_normal"], w, h), (255,255,0, 0.1), 1, 1, 0)
+        cv.line(overlay, self.lm_to_int_2d(self._track["lm_473"], w, h), self.lm_to_int_2d_add(self._track["lm_473"], self._track["eye_y_normal"], w, h), (255,255,0, 0.1), 1, 1, 0)
 
         result = cv.addWeighted(overlay, 0.3, self._frame, 1, 0)
         cv.line(result, self.lm_to_int_2d(self._track["lm_168"], w, h), self.lm_to_int_2d_add(self._track["lm_168"], self._track["g_normal"], w, h), (205,100,205, 0.1), 2, 1, 0)
@@ -271,4 +269,31 @@ class Gaze:
             np.ndarray: Unit vector of the cross product.
         """
         normal = np.cross(v1, v2)
-        return normal / np.linalg.norm(normal)
+        return Gaze.set_vector_length(normal, 1)
+
+    @staticmethod
+    def rh_to_screenspace(v):
+        """
+        Convert a vector from right handed coordinate system to screen-space.
+
+        Args:
+            v (list): Vector to transform.
+
+        Returns:
+            tuple: Vector in screen space.
+        """
+        return (v[1],v[2],v[0])
+    
+    @staticmethod
+    def set_vector_length(v, r):
+        """
+        Set a vector to specified norm in the same direction.
+
+        Args:
+            v (list): Vector to transform.
+            r (int): New vector length
+
+        Returns:
+            v (list): Vector with the new length.
+        """
+        return v / np.linalg.norm(v) * r
