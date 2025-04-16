@@ -4,6 +4,7 @@
 
 from proctoring.gaze import Gaze
 from multiprocessing import Process, Queue
+from plyer import notification
 
 class Proctoring:
     """
@@ -13,6 +14,8 @@ class Proctoring:
         demo (bool): Whether the program is running in demo mode.
     """
 
+    APP_NAME = "Proctoring system"
+
     def __init__(self, demo: bool = False):
         """
         Initialize the Proctoring system.
@@ -20,19 +23,40 @@ class Proctoring:
         Args:
             demo (bool): Run in demo mode if True.
         """
-        self.gaze_queue = Queue()
+        self._demo = demo 
+        self._gaze_queue = Queue()
+        self._gaze_process = Process(target=self._run_gaze, args=(self._gaze_queue,))
+        self._gaze_instance = None
+        self._gaze_recieve = Process(target=self._listen_for_gaze)
+        self.running = False
 
-        gaze = Process(target=self.run_gaze, args=(self.gaze_queue, demo,))
-        gaze.start()
-        gaze_recieve = Process(target=self.listen_for_gaze)
-        gaze_recieve.start()
+    def start_exam(self):
+        self._gaze_process.start()
+        self._gaze_recieve.start()
+        self.running = True
+
+    def end_exam(self):
+        self._gaze_process.terminate()
+        self._gaze_recieve.terminate()
+        self.running = False
     
-    def run_gaze(self, queue, demo):
-        gaze_instance = Gaze(queue, demo)
-        gaze_instance.run()
+    def _run_gaze(self, queue):
+        self._gaze_instance = Gaze(queue, self._demo)
 
-    def listen_for_gaze(self):
+    def _listen_for_gaze(self):
         while True:
-            if not self.gaze_queue.empty():
-                message = self.gaze_queue.get()
-                print(f"Gazeaway: {message:.2f}")
+            if not self._gaze_queue.empty():
+                msg = self._gaze_queue.get()
+                title = "Gazeaway"
+                message=f"Identified user gazeaway for: {msg:.2f}s"
+                self._notify(title, message)
+
+    def _notify(self, title, message):
+        notification.notify(
+            app_name = self.APP_NAME,
+            app_icon = '',
+            title = title,
+            message = message,
+            timeout = 3,
+            toast = False
+        )
