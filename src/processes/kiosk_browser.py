@@ -8,42 +8,32 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from contextlib import contextmanager
-
-# === Step 1: Create whitelist mitmproxy script ===
-whitelist_script = """
-from mitmproxy import http
-import re
-
-WHITELIST_PATTERNS = [
-    r".*\\.google\\.com$",
-    r".*\\.googleapis\\.com$",
-    r".*\\.gstatic\\.com$",
-    r".*chrome\\.webdriver\\.com$"
-]
-
-def is_whitelisted(host):
-    return any(re.match(pattern, host) for pattern in WHITELIST_PATTERNS)
-
-def request(flow: http.HTTPFlow) -> None:
-    if not is_whitelisted(flow.request.pretty_host):
-        flow.response = http.Response.make(
-            403, b"Blocked by whitelist proxy", {"Content-Type": "text/plain"}
-        )
-"""
+import shutil
 
 @contextmanager
 def temporary_script():
     temp_dir = tempfile.gettempdir()
     script_path = os.path.join(temp_dir, "whitelist_mitm.py")
-    try:
-        with open(script_path, "w") as f:
-            f.write(whitelist_script)
-        yield script_path
-    finally:
-        try:
-            os.remove(script_path)
-        except OSError:
-            pass
+    
+    # Try multiple possible locations for the whitelist script
+    possible_locations = [
+        os.path.join(os.path.dirname(__file__), "whitelist_mitm.py"),  # in processes folder
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "whitelist_mitm.py"),  # in src folder
+    ]
+    
+    for original_script in possible_locations:
+        if os.path.exists(original_script):
+            try:
+                shutil.copy2(original_script, script_path)
+                yield script_path
+                return
+            finally:
+                try:
+                    os.remove(script_path)
+                except OSError:
+                    pass
+    
+    raise FileNotFoundError("Could not find whitelist_mitm.py in any expected location")
 
 # === Step 2: Start mitmdump with the whitelist script ===
 try:
