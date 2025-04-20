@@ -29,18 +29,15 @@ def start_browser():
             return
 
         try:
-            # === Step 3: Set up Selenium to use the proxy ===
             proxy = "127.0.0.1:8080"
             print(f"Setting up proxy: {proxy}")
 
             options = Options()
-            # Temporarily disable headless for debugging
-            # options.add_argument("--headless=new")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument(f"--proxy-server=http://{proxy}")
             options.add_argument("--ignore-certificate-errors")
-            options.add_argument("--start-maximized")  # Start maximized
+            options.add_argument("--start-maximized")
             options.add_argument("--kiosk")  # Force fullscreen
             options.add_argument("--verbose")
             options.add_argument("--log-level=0")
@@ -84,7 +81,6 @@ def start_browser():
             except Exception as e:
                 print(f"Warning during browser cleanup: {e}")
 
-# === Step 2: Start mitmdump with the whitelist script ===
 def main():
     start_browser()
 
