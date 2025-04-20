@@ -22,12 +22,6 @@ def start_browser():
             preexec_fn=os.setsid  # so we can kill the process group later
         )
 
-        # Wait and check if process is still running
-        time.sleep(3)
-        if mitmdump_proc.poll() is not None:
-            print("Error: mitmdump failed to start")
-            return
-
         try:
             proxy = "127.0.0.1:8080"
             print(f"Setting up proxy: {proxy}")
