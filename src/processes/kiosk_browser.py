@@ -54,7 +54,7 @@ def start_browser():
             print("Chrome launched successfully")
 
             print("Testing connection...")
-            driver.get("https://www.google.com")
+            driver.get("https://canvas.kth.se")
             print("Navigation successful")
             
             # Keep browser running until parent process exits
