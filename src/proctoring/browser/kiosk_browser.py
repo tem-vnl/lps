@@ -8,12 +8,22 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager
 
-class KioskBrowser:
+class Browser:
     def __init__(self):
         self.driver = None
         self.mitmdump_proc = None
         
-    def setup_mitmdump(self):
+    def run(self):
+        try:
+            self._setup_mitmdump()
+            self._setup_browser()
+            self._start_browser()
+        except Exception as e:
+            print(f"Browser error: {str(e)}")
+        finally:
+            self._cleanup()
+            
+    def _setup_mitmdump(self):
         script_path = os.path.join(os.path.dirname(__file__), "whitelist_mitm.py")
         self.mitmdump_proc = subprocess.Popen(
             ["mitmdump", "-s", script_path],
@@ -21,8 +31,8 @@ class KioskBrowser:
             stderr=subprocess.DEVNULL,
             preexec_fn=os.setsid
         )
-
-    def setup_browser(self):
+        
+    def _setup_browser(self):
         proxy = "127.0.0.1:8080"
         print(f"Setting up proxy: {proxy}")
 
@@ -43,8 +53,16 @@ class KioskBrowser:
         self.driver = webdriver.Chrome(service=service, options=options)
         self.driver.set_page_load_timeout(30)
         print("Chrome launched successfully")
-
-    def cleanup(self):
+        
+    def _start_browser(self):
+        print("Testing connection...")
+        self.driver.get("https://canvas.kth.se")
+        print("Navigation successful")
+        
+        while True:
+            time.sleep(1)
+            
+    def _cleanup(self):
         if self.mitmdump_proc:
             try:
                 os.killpg(os.getpgid(self.mitmdump_proc.pid), signal.SIGTERM)
@@ -58,30 +76,9 @@ class KioskBrowser:
             except Exception as e:
                 print(f"Warning during browser cleanup: {e}")
 
-    def start(self):
-        try:
-            self.setup_mitmdump()
-            self.setup_browser()
-
-            print("Testing connection...")
-            self.driver.get("https://canvas.kth.se")
-            print("Navigation successful")
-            
-            while True:
-                time.sleep(1)
-
-        except WebDriverException as e:
-            print(f"WebDriver error: {str(e)}")
-            raise
-        except Exception as e:
-            print(f"Unexpected error: {str(e)}")
-            raise
-        finally:
-            self.cleanup()
-
 def main():
-    browser = KioskBrowser()
-    browser.start()
+    browser = Browser()
+    browser.run()
 
 if __name__ == "__main__":
     main()

@@ -1,27 +1,32 @@
-import psutil
 import os
 import pwd
 import time
+import psutil
 
-"""
-Process identification and tracking class
-"""
-
-class Processes:
-    def __init__(self):
-        self.__username = self.__set_username()
-
-    def __set_username(self):
-        return pwd.getpwuid(os.getuid())[0]
-    
-    def __get_username(self):
-        return self.__username
-
-    def __get_user_processes(self):
+class ProcessMonitor:
+    def __init__(self, queue):
+        self.queue = queue
+        self.username = pwd.getpwuid(os.getuid())[0]
+        
+    def run(self):
+        print("Process monitoring started\n")
+        previous_processes = self._get_user_processes()
+        
+        while True:
+            time.sleep(5)
+            current_processes = self._get_user_processes()
+            started, stopped = self._compare_processes(previous_processes, current_processes)
+            
+            if started or stopped:
+                self.queue.put({"started": started, "stopped": stopped})
+                
+            previous_processes = current_processes
+            
+    def _get_user_processes(self):
         processes_dict = {}
         for process in psutil.process_iter(['pid', 'name', 'username']):
             try:
-                if process.info['username'] == self.__get_username():
+                if process.info['username'] == self.username:
                     proc_name = process.info['name']
                     proc_info = {
                         "pid": process.info['pid'],
@@ -33,8 +38,8 @@ class Processes:
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
         return processes_dict
-    
-    def __compare_processes(self, old, new):
+
+    def _compare_processes(self, old, new):
         started = {}
         stopped = {}
 
@@ -57,29 +62,3 @@ class Processes:
                 stopped[name] = [proc for proc in old_list if proc['pid'] in removed_pids]
 
         return started, stopped
-
-    def monitor(self, interval=5):
-        print("Monitoring started\n")
-        previous_processes = self.__get_user_processes()
-
-        while True:
-            time.sleep(interval)
-            current_processes = self.__get_user_processes()
-            started, stopped = self.__compare_processes(previous_processes, current_processes)
-
-            if started:
-                print("\n New Processes:")
-                for name, procs in started.items():
-                    for proc in procs:
-                        print(f"  {name} - PID: {proc['pid']}")
-            
-            if stopped:
-                print("\n Terminated Processes:")
-                for name, procs in stopped.items():
-                    for proc in procs:
-                        print(f"  {name} - PID: {proc['pid']}")
-            
-            if not started and not stopped:
-                print(".", end="", flush=True)  # Just a dot to show it's still alive
-
-            previous_processes = current_processes
