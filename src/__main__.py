@@ -4,8 +4,8 @@ import signal
 import sys
 
 from proctoring import Proctoring
-from processes import Processes
-from processes.kiosk_browser import start_browser
+from proctoring.processes import Processes  # Change import to get the class
+from proctoring.browser import KioskBrowser
 
 def signal_handler(signum, frame):
     print("\nShutting down...")
@@ -27,7 +27,7 @@ def main():
 
     try:
         # Start process monitoring
-        process_monitor = Processes()
+        process_monitor = Processes()  # Use the class instead of module
         proc_process = Process(target=process_monitor.monitor)
         proc_process.start()
 
@@ -35,7 +35,8 @@ def main():
         proctor = Proctoring(demo=args["demo"])
 
         # Start kiosk browser
-        browser_process = Process(target=start_browser)
+        browser = KioskBrowser()
+        browser_process = Process(target=browser.start)
         browser_process.start()
 
         # Wait for processes
