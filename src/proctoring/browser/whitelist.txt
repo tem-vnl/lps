@@ -1,0 +1,8 @@
+canvas.kth.se
+saml-5.sys.kth.se
+login.ug.kth.se
+sso.canvaslms.com
+instructure.com
+canvaslms.com
+kth.se
+chrome.webdriver.com

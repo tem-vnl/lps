@@ -14,6 +14,5 @@ def main():
 
     Proctoring(demo=args["demo"])
 
-
 if __name__ == "__main__":
     main()
