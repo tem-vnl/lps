@@ -1,1 +1,1 @@
-from .kiosk_browser import Browser
+from .browser import Browser
