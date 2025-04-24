@@ -7,6 +7,7 @@ from proctoring.processes import ProcessMonitor
 from proctoring.browser import Browser
 from multiprocessing import Process, Queue
 from plyer import notification
+import time
 
 class Proctoring:
     """
@@ -29,6 +30,7 @@ class Proctoring:
 
         self._gaze_queue = Queue()
         self._process_queue = Queue()
+        self._browser_queue = Queue()
 
         self._processes = {
             "gaze": None,
@@ -46,7 +48,7 @@ class Proctoring:
         self._processes["gaze_recieve"] = Process(target=self._listen_for_gaze)
         self._processes["process_monitor"] = Process(target=self._run_process_monitor, args=(self._process_queue,))
         self._processes["process_monitor_recieve"] = Process(target=self._listen_for_processes)
-        self._processes["browser"] = Process(target=self._run_browser)
+        self._processes["browser"] = Process(target=self._run_browser, args=(self._browser_queue,))
 
         for _, process in self._processes.items():
             process.start()
@@ -55,6 +57,10 @@ class Proctoring:
 
     def end_exam(self):
         if self.running == False: return
+        
+        # Signal browser to close and wait for it to process
+        self._browser_queue.put("STOP")
+        time.sleep(1)  # Give browser time to cleanup
         
         for name, process in self._processes.items():
             process.terminate()
@@ -68,8 +74,8 @@ class Proctoring:
     def _run_process_monitor(self, queue):
         ProcessMonitor(queue).run()
 
-    def _run_browser(self):
-        Browser().run()
+    def _run_browser(self, queue):
+        Browser(queue).run()
 
     def _listen_for_gaze(self):
         while True:
