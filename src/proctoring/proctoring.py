@@ -3,6 +3,8 @@
 """
 
 from proctoring.gaze import Gaze
+from proctoring.processes import ProcessMonitor
+from proctoring.browser import Browser
 from multiprocessing import Process, Queue
 from plyer import notification
 

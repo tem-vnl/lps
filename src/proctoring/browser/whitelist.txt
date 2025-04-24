@@ -1,0 +1,12 @@
+canvas.kth.se
+app.kth.se
+cloudfront.net
+amazonaws.com
+inscloudgate.net
+saml-5.sys.kth.se
+login.ug.kth.se
+sso.canvaslms.com
+instructure.com
+canvaslms.com
+kth.se
+chrome.webdriver.com
