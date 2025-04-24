@@ -7,7 +7,7 @@ authors = [
     {name = "Temuulen Molomjamts", email = "temmol@kth.se"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4"
 dependencies = [
     "opencv-python (>=4.11.0.86,<5.0.0.0)",
     "dlib (>=19.24.6,<20.0.0)",
@@ -17,6 +17,7 @@ dependencies = [
     "mitmproxy (>=10.2.4)",
     "webdriver-manager (>=4.0.1)",
     "psutil (>=7.0.0,<8.0.0)",
+    "reportlab (>=4.4.0,<5.0.0)",
 ]
 
 [build-system]
