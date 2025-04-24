@@ -7,6 +7,7 @@ class ProcessMonitor:
     def __init__(self, queue):
         self.queue = queue
         self.username = pwd.getpwuid(os.getuid())[0]
+        self.safe_processes = open(os.path.join(os.path.dirname(__file__), "whitelist.txt")).read().splitlines()
         
     def run(self):
         print("Process monitoring started\n")
@@ -18,6 +19,10 @@ class ProcessMonitor:
             started, stopped = self._compare_processes(previous_processes, current_processes)
             
             if started or stopped:
+                for name, pidarray in started.items():
+                    if len([safe for safe in self.safe_processes if safe in name]) < 1:
+                        for pid in pidarray:
+                            self._kill_process(pid['pid'])
                 self.queue.put({"started": started, "stopped": stopped})
                 
             previous_processes = current_processes
@@ -62,3 +67,12 @@ class ProcessMonitor:
                 stopped[name] = [proc for proc in old_list if proc['pid'] in removed_pids]
 
         return started, stopped
+    
+    def _kill_process(self, pid):
+        try:
+            process = psutil.Process(pid)
+            for subprocess in process.children(recursive=False):
+                self._kill_process(subprocess.pid)
+            if process.is_running: process.kill()
+        except Exception as e:
+            print(f"Couldn't gracefully terminate PID: {pid}")

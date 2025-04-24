@@ -1,0 +1,4 @@
+mitmdump
+python
+chromedriver
+nautilus
