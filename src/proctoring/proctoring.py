@@ -25,17 +25,18 @@ class Proctoring:
         # Initialize queues
         self.gaze_queue = Queue()
         self.process_queue = Queue()
+        self.internal_pid_queue = Queue()
         
         # Start gaze monitoring
         gaze = Process(target=self.run_gaze, args=(self.gaze_queue, demo,))
         gaze_receive = Process(target=self.listen_for_gaze)
         
         # Start process monitoring
-        process_monitor = Process(target=self.run_process_monitor, args=(self.process_queue,))
+        process_monitor = Process(target=self.run_process_monitor, args=(self.process_queue,self.internal_pid_queue))
         process_receive = Process(target=self.listen_for_processes)
         
         # Start browser
-        browser = Process(target=self.run_browser)
+        browser = Process(target=self.run_browser, args=(self.internal_pid_queue,))
         
         # Start all processes
         for p in [gaze, gaze_receive, process_monitor, process_receive, browser]:
@@ -51,8 +52,8 @@ class Proctoring:
                 message = self.gaze_queue.get()
                 print(f"Gazeaway: {message:.2f}")
                 
-    def run_process_monitor(self, queue):
-        monitor = ProcessMonitor(queue)
+    def run_process_monitor(self, queue, pid_queue):
+        monitor = ProcessMonitor(queue, pid_queue)
         monitor.run()
         
     def listen_for_processes(self):
@@ -61,6 +62,6 @@ class Proctoring:
                 message = self.process_queue.get()
                 print(f"Process change: {message}")
                 
-    def run_browser(self):
-        browser = Browser()
+    def run_browser(self, pid_queue):
+        browser = Browser(pid_queue)
         browser.run()

@@ -1,4 +1,4 @@
-mitmdump
 python
 chromedriver
-nautilus
+chrome_
+mitmdump

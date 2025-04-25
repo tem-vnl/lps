@@ -2,15 +2,18 @@ import os
 import subprocess
 import time
 import signal
+import psutil
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 class Browser:
-    def __init__(self):
+    def __init__(self, queue):
         self.driver = None
         self.mitmdump_proc = None
+        self.queue = queue
+        self.browser_process = None
         
     def run(self):
         try:
@@ -30,6 +33,7 @@ class Browser:
             stderr=subprocess.DEVNULL,
             preexec_fn=os.setsid
         )
+        self.queue.put(self.mitmdump_proc.pid)
         
     def _setup_browser(self):
         proxy = "127.0.0.1:8080"
@@ -52,6 +56,11 @@ class Browser:
         self.driver = webdriver.Chrome(service=service, options=options)
         self.driver.set_page_load_timeout(30)
         print("Chrome launched successfully")
+        self.browser_process = psutil.Process(self.driver.service.process.pid)
+        self.queue.put(self.browser_process.pid)
+        for p in self.browser_process.children(recursive=True):
+            self.queue.put(p.pid)
+
         
     def _start_browser(self):
         print("Testing connection...")
