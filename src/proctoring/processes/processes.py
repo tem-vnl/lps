@@ -78,7 +78,7 @@ class ProcessMonitor:
     def _kill_process(self, pid):
         try:
             process = psutil.Process(pid)
-            for subprocess in process.children(recursive=False):
+            for subprocess in process.children(recursive=True):
                 self._kill_process(subprocess.pid)
             if process.is_running: process.kill()
         except Exception as e:
