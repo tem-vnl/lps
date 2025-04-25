@@ -7,6 +7,7 @@ from proctoring.processes import ProcessMonitor
 from proctoring.browser import Browser
 from multiprocessing import Process, Queue
 from plyer import notification
+import psutil
 import time
 
 class Proctoring:
@@ -18,6 +19,7 @@ class Proctoring:
     """
 
     APP_NAME = "Proctoring system"
+    INVALID_AT_STARTUP = ["chrome"]
 
     def __init__(self, demo: bool = False):
         """
@@ -102,3 +104,17 @@ class Proctoring:
             timeout = 3,
             toast = False
         )
+
+    def valid_startup(self):
+        running = [name for name in self.INVALID_AT_STARTUP if self._check_running_process(name)]
+        return len(running) < 1, running
+        
+ 
+    def _check_running_process(self, name):
+        for process in psutil.process_iter():
+            try:
+                if name == process.name().lower() and process.is_running:
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return False

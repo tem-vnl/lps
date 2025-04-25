@@ -20,7 +20,11 @@ def main():
         command = input("> ")
         if command == "start":
             if not proctoring.running:
-                proctoring.start_exam()
+                valid, message = proctoring.valid_startup()
+                if valid:
+                    proctoring.start_exam()
+                else:
+                    print(f"Please close the following programs before starting an exam: {message}")
             else:
                 print("An exam is allready running.")
         elif command == "stop":
