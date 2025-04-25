@@ -11,6 +11,9 @@ requires-python = ">=3.12,<4"
 dependencies = [
     "opencv-python (>=4.11.0.86,<5.0.0.0)",
     "dlib (>=19.24.6,<20.0.0)",
+    "pytest (>=8.3.5,<9.0.0)",
+    "plyer (>=2.1.0,<3.0.0)",
+    "dbus-python (>=1.4.0,<2.0.0)",
     "mediapipe (>=0.10.21,<0.11.0)",
     "pytest (>=8.3.5,<9.0.0)",
     "selenium (>=4.18.1)",

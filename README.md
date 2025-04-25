@@ -17,7 +17,7 @@ pipx install poetry
 ```
 
 Run the following command to install dependencies:
-__NOTE:__ dlib can take a long time to install, and requires cmake to be installed on your system.
+__NOTE:__ Some of the packages takes a long time to install first time, and has some system dependencies such as cmake, dbus-1, etc.
 
 ```shell
 poetry install

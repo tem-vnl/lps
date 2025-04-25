@@ -8,9 +8,11 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 class Browser:
-    def __init__(self):
+    def __init__(self, queue=None):
         self.driver = None
         self.mitmdump_proc = None
+        self.queue = queue
+        self._active = True
         
     def run(self):
         try:
@@ -58,8 +60,17 @@ class Browser:
         self.driver.get("https://canvas.kth.se")
         print("Navigation successful")
         
-        while True:
-            time.sleep(1)
+        while self._active:
+            if self.queue:
+                try:
+                    msg = self.queue.get_nowait()
+                    if msg == "STOP":
+                        print("Received stop signal, closing browser...")
+                        self._active = False
+                        break
+                except:
+                    pass
+            time.sleep(0.1)
             
     def _cleanup(self):
         if self.mitmdump_proc:

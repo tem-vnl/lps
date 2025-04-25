@@ -12,7 +12,24 @@ def main():
         parser.print_help()
         return
 
-    Proctoring(demo=args["demo"])
+    proctoring = Proctoring(demo=args["demo"])
+
+    print("Welcome to the LPS application!\nstart: To start an exam session.\nstop: To end a running exam session.\nexit: To exit the program.")
+
+    while True:
+        command = input("> ")
+        if command == "start":
+            if not proctoring.running:
+                proctoring.start_exam()
+            else:
+                print("An exam is allready running.")
+        elif command == "stop":
+            if proctoring.running:
+                proctoring.end_exam()
+            else:
+                print("There is no exam running at the moment.")
+        elif command == "exit":
+            break
 
 if __name__ == "__main__":
     main()
