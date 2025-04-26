@@ -33,6 +33,7 @@ class Proctoring:
         self._gaze_queue = Queue()
         self._process_queue = Queue()
         self._browser_queue = Queue()
+        self._internal_pid_queue = Queue()
 
         self._processes = {
             "gaze": None,
@@ -48,9 +49,9 @@ class Proctoring:
         if self.running == True: return
         self._processes["gaze"] = Process(target=self._run_gaze, args=(self._gaze_queue,))
         self._processes["gaze_recieve"] = Process(target=self._listen_for_gaze)
-        self._processes["process_monitor"] = Process(target=self._run_process_monitor, args=(self._process_queue,))
+        self._processes["process_monitor"] = Process(target=self._run_process_monitor, args=(self._process_queue,self._internal_pid_queue))
         self._processes["process_monitor_recieve"] = Process(target=self._listen_for_processes)
-        self._processes["browser"] = Process(target=self._run_browser, args=(self._browser_queue,))
+        self._processes["browser"] = Process(target=self._run_browser, args=(self._browser_queue, self._internal_pid_queue,))
 
         for _, process in self._processes.items():
             process.start()
@@ -73,11 +74,11 @@ class Proctoring:
     def _run_gaze(self, queue):
         Gaze(queue, self._demo).run()
 
-    def _run_process_monitor(self, queue):
-        ProcessMonitor(queue).run()
+    def _run_browser(self, queue, pid_queue):
+        Browser(queue, pid_queue).run()
 
-    def _run_browser(self, queue):
-        Browser(queue).run()
+    def _run_process_monitor(self, queue, pid_queue):
+        ProcessMonitor(queue, pid_queue).run()
 
     def _listen_for_gaze(self):
         while True:
@@ -86,6 +87,8 @@ class Proctoring:
                 title = "Gazeaway"
                 message=f"Identified user gazeaway for: {msg:.2f}s"
                 self._notify(title, message)
+        
+    
 
     def _listen_for_processes(self):
         while True:
@@ -94,6 +97,9 @@ class Proctoring:
                 title = "Process identified"
                 message=f"Identified new process: {msg}s"
                 self._notify(title, message)
+
+    def run_browser(self, pid_queue):
+        browser = Browser(pid_queue)
 
     def _notify(self, title, message):
         notification.notify(
