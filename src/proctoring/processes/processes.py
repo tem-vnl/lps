@@ -24,13 +24,13 @@ class ProcessMonitor:
             while not self.pid_queue.empty():
                 self.safe_pid.add(self.pid_queue.get())
             
-            if started or stopped:
+            if started:
                 for name, pidarray in started.items():
                     if len([safe for safe in self.safe_processes if safe in name]) < 1:
                         for pid in pidarray:
                             if pid['pid'] in self.safe_pid: continue
                             self._kill_process(pid['pid'])
-                self.queue.put({"started": started, "stopped": stopped})
+                            self.queue.put(name)
                 
             previous_processes = current_processes
             

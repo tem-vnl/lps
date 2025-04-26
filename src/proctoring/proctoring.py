@@ -9,6 +9,7 @@ from multiprocessing import Process, Queue
 from plyer import notification
 import psutil
 import time
+import math
 
 class Proctoring:
     """
@@ -34,6 +35,9 @@ class Proctoring:
         self._process_queue = Queue()
         self._browser_queue = Queue()
         self._internal_pid_queue = Queue()
+
+        self._gaze_time = 0
+        self._reported_time = 0
 
         self._processes = {
             "gaze": None,
@@ -83,23 +87,22 @@ class Proctoring:
     def _listen_for_gaze(self):
         while True:
             if not self._gaze_queue.empty():
-                msg = self._gaze_queue.get()
-                title = "Gazeaway"
-                message=f"Identified user gazeaway for: {msg:.2f}s"
-                self._notify(title, message)
+                self._gaze_time += self._gaze_queue.get()
+                total_minutes = math.floor(self._gaze_time / 60)
+                print(self._gaze_time, total_minutes)
+                if total_minutes > self._reported_time:
+                    self._reported_time = total_minutes
+                    title = "Gazeaway"
+                    message=f"Warning: Time spent not looking at screen has been logged, total time logged: {total_minutes} minutes"
+                    self._notify(title, message)
         
-    
-
     def _listen_for_processes(self):
         while True:
             if not self._process_queue.empty():
                 msg = self._process_queue.get()
                 title = "Process identified"
-                message=f"Identified new process: {msg}s"
+                message=f"Warning: Process not allowed during exam identified: {msg}"
                 self._notify(title, message)
-
-    def run_browser(self, pid_queue):
-        browser = Browser(pid_queue)
 
     def _notify(self, title, message):
         notification.notify(
