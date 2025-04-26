@@ -26,6 +26,7 @@ class Gaze:
         _timer (float): Timer to measure the duration of gaze-away events.
         _queue (multiprocessing.Queue): Queue for sending gaze-away duration to the main process.
         active (bool): Indicates whether the gaze tracking process is active.
+        _total_gazeaway (float): Total accumulated time spent gazing away.
     """
 
     LANDMARK_INDICES = [199, 156, 168, 33, 27, 468, 362, 257, 473, 10, 383, 133, 230, 263, 450]
@@ -72,6 +73,7 @@ class Gaze:
         self._timer = None
         self._queue = queue
         self._active = True
+        self._total_gazeaway = 0.0
 
         if not self._feed.isOpened():
             raise RuntimeError("Could not open videostream")
@@ -99,8 +101,19 @@ class Gaze:
                 self._timer = time.time()
             self._gazeaway = True
         elif self._gazeaway:
+            tdiff = time.time() - self._timer
+            self._total_gazeaway += tdiff if tdiff > self.MIN_GAZE_DURATION else 0
             self._report()
             self._gazeaway = False
+
+    def get_total_gazeaway(self):
+        """
+        Returns the total time spent gazing away.
+
+        Returns:
+            float: Total accumulated time in seconds spent gazing away.
+        """
+        return self._total_gazeaway
 
     def _report(self):
         """
@@ -112,6 +125,8 @@ class Gaze:
                 self._queue.put(tdiff)
             except Exception as e:
                 print(f"Error sending data to queue: {e}")
+            finally:
+                self._timer = None
 
     def _analyze(self):
         """
@@ -191,8 +206,8 @@ class Gaze:
             cv.putText(result, "GAZEAWAY DETECTED", (35, 35), cv.FONT_HERSHEY_DUPLEX, 1, (147, 58, 31), 2)
         else:
             cv.putText(result, "FOCUSING", (35, 35), cv.FONT_HERSHEY_DUPLEX, 1, (147, 58, 31), 2)
-        cv.putText(result, f"XDIFF: {abs(self._track["g_normal"][0])}", (35, 65), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
-        cv.putText(result, f"YDIFF: {abs(self._track["g_normal"][1])}", (35, 95), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
+        cv.putText(result, f"XDIFF: {abs(self._track['g_normal'][0])}", (35, 65), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
+        cv.putText(result, f"YDIFF: {abs(self._track['g_normal'][1])}", (35, 95), cv.FONT_HERSHEY_DUPLEX, 0.75, (147, 58, 31), 2)
         
         cv.imshow("_feed", result)
     
