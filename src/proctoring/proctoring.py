@@ -54,7 +54,7 @@ class Proctoring:
         self._total_gazeaway = 0.0
         self._start_time = None
         self._process_entries = {
-            'initial': {},  # Change to dict to store pid-name pairs
+            'initial': set(),  # Change to store just process names
             'new': []
         }
 
@@ -64,12 +64,10 @@ class Proctoring:
         if self.running == True: return
         self._start_time = datetime.now()
         
-        # Store both pid and name of initial processes
-        for p in psutil.process_iter(['pid', 'name']):
-            try:
-                self._process_entries['initial'][p.info['pid']] = p.info['name']
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
+        # Store just process names initially
+        self._process_entries['initial'] = {
+            p.info['name'].lower() for p in psutil.process_iter(['name'])
+        }
         
         self._processes["browser"] = Process(target=self._run_browser, args=(self._browser_queue, self._internal_pid_queue,))
         self._processes["gaze"] = Process(target=self._run_gaze, args=(self._gaze_queue,))
@@ -101,7 +99,7 @@ class Proctoring:
             msg = self._process_queue.get()
             if isinstance(msg, dict) and msg.get('type') == 'new_process':
                 entry = (msg['timestamp'], msg['pid'], msg['name'])
-                if msg['name'] not in self._process_entries['initial']:
+                if msg['name'].lower() not in self._process_entries['initial']:
                     self._process_entries['new'].append(entry)
             
         for name, process in self._processes.items():
