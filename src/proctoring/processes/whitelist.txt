@@ -2,3 +2,9 @@ python
 chromedriver
 chrome_
 mitmdump
+notify-send
+apport
+gdbus
+sh
+cpuUsage.sh
+sleep

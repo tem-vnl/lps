@@ -5,7 +5,7 @@
 from proctoring.gaze import Gaze
 from proctoring.processes import ProcessMonitor
 from proctoring.browser import Browser
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Value
 from plyer import notification
 import psutil
 from reportlab.lib.pagesizes import letter
@@ -36,11 +36,11 @@ class Proctoring:
         self._demo = demo 
 
         self._gaze_queue = Queue()
+        self._gaze_time = Value('d', 0.0)  # 'd' for double precision float
         self._process_queue = Queue()
         self._browser_queue = Queue()
         self._internal_pid_queue = Queue()
 
-        self._gaze_time = 0
         self._reported_time = 0
 
         self._processes = {
@@ -54,7 +54,7 @@ class Proctoring:
         self._total_gazeaway = 0.0
         self._start_time = None
         self._process_entries = {
-            'initial': set(),
+            'initial': {},  # Change to dict to store pid-name pairs
             'new': []
         }
 
@@ -63,11 +63,19 @@ class Proctoring:
     def start_exam(self):
         if self.running == True: return
         self._start_time = datetime.now()
+        
+        # Store both pid and name of initial processes
+        for p in psutil.process_iter(['pid', 'name']):
+            try:
+                self._process_entries['initial'][p.info['pid']] = p.info['name']
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        self._processes["browser"] = Process(target=self._run_browser, args=(self._browser_queue, self._internal_pid_queue,))
         self._processes["gaze"] = Process(target=self._run_gaze, args=(self._gaze_queue,))
         self._processes["gaze_recieve"] = Process(target=self._listen_for_gaze)
         self._processes["process_monitor"] = Process(target=self._run_process_monitor, args=(self._process_queue,self._internal_pid_queue))
         self._processes["process_monitor_recieve"] = Process(target=self._listen_for_processes)
-        self._processes["browser"] = Process(target=self._run_browser, args=(self._browser_queue, self._internal_pid_queue,))
 
         for _, process in self._processes.items():
             process.start()
@@ -77,6 +85,8 @@ class Proctoring:
     def end_exam(self):
         if self.running == False: return
         
+        self._end_time = datetime.now()
+        
         # Signal processes to stop and wait for final data
         self._browser_queue.put("STOP")
         time.sleep(1)  # Give processes time to cleanup and send final data
@@ -84,13 +94,15 @@ class Proctoring:
         # Process any remaining messages in queues
         while not self._gaze_queue.empty():
             msg = self._gaze_queue.get()
-            self._total_gazeaway += msg
+            with self._gaze_time.get_lock():
+                self._gaze_time.value += msg
             
         while not self._process_queue.empty():
             msg = self._process_queue.get()
             if isinstance(msg, dict) and msg.get('type') == 'new_process':
                 entry = (msg['timestamp'], msg['pid'], msg['name'])
-                self._process_entries['new'].append(entry)
+                if msg['name'] not in self._process_entries['initial']:
+                    self._process_entries['new'].append(entry)
             
         for name, process in self._processes.items():
             process.terminate()
@@ -111,22 +123,29 @@ class Proctoring:
     def _listen_for_gaze(self):
         while True:
             if not self._gaze_queue.empty():
-                self._gaze_time += self._gaze_queue.get()
-                total_minutes = math.floor(self._gaze_time / 60)
-                print(self._gaze_time, total_minutes)
+                with self._gaze_time.get_lock():
+                    self._gaze_time.value += self._gaze_queue.get()
+                total_minutes = self._gaze_time.value / 60
+                print(f"Gaze away time: {total_minutes:.2f} minutes ({self._gaze_time.value:.1f} seconds)")
                 if total_minutes > self._reported_time:
                     self._reported_time = total_minutes
                     title = "Gazeaway"
-                    message=f"Warning: Time spent not looking at screen has been logged, total time logged: {total_minutes} minutes"
+                    message=f"Warning: Time spent not looking at screen has been logged, total time logged: {total_minutes:.2f} minutes"
                     self._notify(title, message)
         
     def _listen_for_processes(self):
         while True:
             if not self._process_queue.empty():
                 msg = self._process_queue.get()
-                title = "Process identified"
-                message=f"Warning: Process not allowed during exam identified: {msg}"
-                self._notify(title, message)
+                if isinstance(msg, dict) and msg.get('type') == 'new_process':
+                    # Check if this PID existed at start with the same name
+                    initial_name = self._process_entries['initial'].get(msg['pid'])
+                    if initial_name != msg['name']:  # New process or different process with same PID
+                        self._process_entries['new'].append((msg['timestamp'], msg['pid'], msg['name']))
+                        title = "Process identified"
+                        message = f"Warning: Process not allowed during exam identified: {msg['name']}"
+                        self._notify(title, message)
+            time.sleep(0.1)  # Prevent CPU hogging
 
     def _notify(self, title, message):
         notification.notify(
@@ -178,7 +197,8 @@ class Proctoring:
         c.setFont("Helvetica", 12)
         c.drawString(inch, y, f"Exam Start Time: {self._start_time}")
         y -= 0.3*inch
-        c.drawString(inch, y, f"Total Time Gazing Away: {self._total_gazeaway:.2f} seconds")
+        minutes = self._gaze_time.value / 60
+        c.drawString(inch, y, f"Total Time Gazing Away: {minutes:.1f} minutes ({self._gaze_time.value:.1f} seconds)")
         y -= 0.5*inch
         
         # Process list
