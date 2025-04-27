@@ -9,11 +9,13 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 class Browser:
-    def __init__(self, queue):
+    def __init__(self, queue=None, pid_queue=None):
         self.driver = None
         self.mitmdump_proc = None
         self.queue = queue
         self.browser_process = None
+        self.pid_queue = pid_queue
+        self._active = True
         
     def run(self):
         try:
@@ -57,9 +59,9 @@ class Browser:
         self.driver.set_page_load_timeout(30)
         print("Chrome launched successfully")
         self.browser_process = psutil.Process(self.driver.service.process.pid)
-        self.queue.put(self.browser_process.pid)
+        self.pid_queue.put(self.browser_process.pid)
         for p in self.browser_process.children(recursive=True):
-            self.queue.put(p.pid)
+            self.pid_queue.put(p.pid)
 
         
     def _start_browser(self):
@@ -67,8 +69,17 @@ class Browser:
         self.driver.get("https://canvas.kth.se")
         print("Navigation successful")
         
-        while True:
-            time.sleep(1)
+        while self._active:
+            if self.queue:
+                try:
+                    msg = self.queue.get_nowait()
+                    if msg == "STOP":
+                        print("Received stop signal, closing browser...")
+                        self._active = False
+                        break
+                except:
+                    pass
+            time.sleep(0.1)
             
     def _cleanup(self):
         if self.mitmdump_proc:

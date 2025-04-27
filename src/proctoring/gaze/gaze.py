@@ -44,12 +44,13 @@ class Gaze:
         self._feed = cv.VideoCapture(0)
         self._frame = None
         self._base_options = python.BaseOptions(
-            model_asset_path=os.path.dirname(__file__) + "/models/face_landmarker_v2_with_blendshapes.task"
+            model_asset_path=os.path.dirname(__file__) + "/models/face_landmarker_v2_with_blendshapes.task",
+            delegate=python.BaseOptions.Delegate.GPU
         )
         self._options = vision.FaceLandmarkerOptions(
             base_options=self._base_options,
-            output_face_blendshapes=True,
-            output_facial_transformation_matrixes=True,
+            output_face_blendshapes=False,
+            output_facial_transformation_matrixes=False,
             num_faces=1,
             running_mode=mp.tasks.vision.RunningMode.IMAGE
         )
