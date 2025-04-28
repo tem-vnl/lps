@@ -123,7 +123,7 @@ class Proctoring:
             if not self._gaze_queue.empty():
                 with self._gaze_time.get_lock():
                     self._gaze_time.value += self._gaze_queue.get()
-                total_minutes = self._gaze_time.value / 60
+                total_minutes = math.floor(self._gaze_time.value / 60)
                 print(f"Gaze away time: {total_minutes:.2f} minutes ({self._gaze_time.value:.1f} seconds)")
                 if total_minutes > self._reported_time:
                     self._reported_time = total_minutes

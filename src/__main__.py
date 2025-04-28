@@ -33,7 +33,10 @@ def main():
             else:
                 print("There is no exam running at the moment.")
         elif command == "exit":
-            break
+            if proctoring.running:
+                print("Can't exit with an active exam session.")
+            else:
+                break
 
 if __name__ == "__main__":
     main()
