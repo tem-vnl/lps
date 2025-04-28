@@ -22,7 +22,6 @@ Run the following command to install dependencies:
 poetry install
 ```
 
-
 You can then start the application by running:
 
 ```shell
