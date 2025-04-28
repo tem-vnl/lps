@@ -17,11 +17,11 @@ pipx install poetry
 ```
 
 Run the following command to install dependencies:
-__NOTE:__ Some of the packages takes a long time to install first time, and has some system dependencies such as cmake, dbus-1, etc.
 
 ```shell
 poetry install
 ```
+
 
 You can then start the application by running:
 
@@ -33,6 +33,10 @@ Need to add any dependencies? Use poetry and do not install or edit dependencies
 
 If you are running into problems with VS Code python interpreter not picking up your poetry environment, please check the [help section](#vs-code-python-interpreter-with-poetry).
 
+__Problems installing with poetry?__
+
+Some of the packages takes a long time to install first time, and has some system dependencies such as cmake, dbus-1, etc, please check the [help section](#missing-global-dependencies).
+
 ## Testing
 
 This project uses pytest for automated testing. To run the tests locally:
@@ -42,6 +46,10 @@ pytest
 ```
 
 ## Help
+
+### Missing global dependencies?
+
+If you are running into problems when runnint `poetry install` it is very likely that you are missing build-tools that the python dependencies rely on when being built and installed. Please carefully check the poetry output in yellow, it often lists missing packages on the last few lines, and install any build-dependencies manually.
 
 ### VS Code python interpreter with poetry
 
