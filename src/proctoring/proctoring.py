@@ -142,7 +142,7 @@ class Proctoring:
                 with self._gaze_time.get_lock():
                     self._gaze_time.value += self._gaze_queue.get()
                 total_minutes = math.floor(self._gaze_time.value / 60)
-                print(f"Gaze away time: {total_minutes:.2f} minutes ({self._gaze_time.value:.1f} seconds)")
+                
                 if total_minutes > self._reported_time:
                     self._reported_time = total_minutes
                     title = "Gazeaway"
@@ -159,7 +159,7 @@ class Proctoring:
                         self._process_entries['new'].append((msg['timestamp'], msg['pid'], msg['name']))
                         title = "Process identified"
                         message = f"Warning: Process not allowed during exam identified: {msg['name']}"
-                        print(title, message)
+                        self._notify(title, message)
             time.sleep(0.1)
 
     def _notify(self, title, message):
