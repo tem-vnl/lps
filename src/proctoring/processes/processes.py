@@ -3,6 +3,7 @@ import pwd
 import time
 import psutil
 from multiprocessing import Process
+from datetime import datetime
 
 class ProcessMonitor:
     def __init__(self, queue, pid_queue):
@@ -15,9 +16,10 @@ class ProcessMonitor:
     def run(self):
         print("Process monitoring started\n")
         previous_processes = self._get_user_processes()
+        self.known_pids = set()  # Track PIDs we've already reported
         
         while True:
-            time.sleep(5)
+            time.sleep(1)  # Check more frequently
             current_processes = self._get_user_processes()
             started, stopped = self._compare_processes(previous_processes, current_processes)
 
@@ -28,9 +30,16 @@ class ProcessMonitor:
                 for name, pidarray in started.items():
                     if len([safe for safe in self.safe_processes if safe in name]) < 1:
                         for pid in pidarray:
-                            if pid['pid'] in self.safe_pid: continue
+                            if pid['pid'] in self.safe_pid or pid['pid'] in self.known_pids:
+                                continue
                             self._kill_process(pid['pid'])
-                            self.queue.put(name)
+                            self.known_pids.add(pid['pid'])
+                            self.queue.put({
+                                'type': 'new_process',
+                                'timestamp': datetime.now(),
+                                'pid': pid['pid'],
+                                'name': name
+                            })
                 
             previous_processes = current_processes
             
