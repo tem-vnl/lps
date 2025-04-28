@@ -5,7 +5,7 @@
 from proctoring.gaze import Gaze
 from proctoring.processes import ProcessMonitor
 from proctoring.browser import Browser
-from multiprocessing import Process, Queue, Value
+from multiprocessing import Process, Queue, Value, Manager
 from plyer import notification
 import psutil
 from reportlab.lib.pagesizes import letter
@@ -35,11 +35,18 @@ class Proctoring:
         """
         self._demo = demo 
 
+        self._manager = Manager()
+        self._process_entries = self._manager.dict({
+            'initial': set(),
+            'new': self._manager.list()
+        })
+
         self._gaze_queue = Queue()
         self._gaze_time = Value('d', 0.0)  # 'd' for double precision float
         self._process_queue = Queue()
         self._browser_queue = Queue()
         self._internal_pid_queue = Queue()
+        self._stop_monitoring = False  # Add this line
 
         self._reported_time = 0
 
@@ -53,10 +60,6 @@ class Proctoring:
 
         self._total_gazeaway = 0.0
         self._start_time = None
-        self._process_entries = {
-            'initial': set(),  # Change to store just process names
-            'new': []
-        }
 
         self.running = False
 
@@ -81,34 +84,49 @@ class Proctoring:
         self.running = True
 
     def end_exam(self):
-        if self.running == False: return
+        if not self.running: return
         
         self._end_time = datetime.now()
+        print(f"Ending exam. Current new processes: {list(self._process_entries['new'])}")
         
-        # Signal processes to stop and wait for final data
         self._browser_queue.put("STOP")
-        time.sleep(1)  # Give processes time to cleanup and send final data
-        
-        # Process any remaining messages in queues
-        while not self._gaze_queue.empty():
-            msg = self._gaze_queue.get()
-            with self._gaze_time.get_lock():
-                self._gaze_time.value += msg
-            
-        while not self._process_queue.empty():
-            msg = self._process_queue.get()
-            if isinstance(msg, dict) and msg.get('type') == 'new_process':
-                entry = (msg['timestamp'], msg['pid'], msg['name'])
-                if msg['name'].lower() not in self._process_entries['initial']:
-                    self._process_entries['new'].append(entry)
-            
-        for name, process in self._processes.items():
-            process.terminate()
-            self._processes[name] = None
+        time.sleep(1)
 
+        for name, process in self._processes.items():
+            if process:
+                process.terminate()
+                process.join(timeout=1)
+                self._processes[name] = None
+
+        # Convert manager list to regular list for report generation
+        self._process_entries['new'] = list(self._process_entries['new'])
+        
+        print(f"Generating report with {len(self._process_entries['new'])} processes")
         self.generate_report("exam_report.pdf")
         self.running = False
-    
+
+    def _drain_queues(self):
+        # Process any remaining gaze data
+        while not self._gaze_queue.empty():
+            try:
+                msg = self._gaze_queue.get_nowait()
+                with self._gaze_time.get_lock():
+                    self._gaze_time.value += msg
+            except:
+                break
+
+        # Process any remaining process data
+        while not self._process_queue.empty():
+            try:
+                msg = self._process_queue.get_nowait()
+                if isinstance(msg, dict) and msg.get('type') == 'new_process':
+                    entry = (msg['timestamp'], msg['pid'], msg['name'])
+                    if msg['name'].lower() not in self._process_entries['initial']:
+                        self._process_entries['new'].append(entry)
+                        print(f"Added process to report: {entry}")
+            except:
+                break
+
     def _run_gaze(self, queue):
         Gaze(queue, self._demo).run()
 
@@ -119,7 +137,7 @@ class Proctoring:
         ProcessMonitor(queue, pid_queue).run()
 
     def _listen_for_gaze(self):
-        while True:
+        while not self._stop_monitoring:  # Modified condition
             if not self._gaze_queue.empty():
                 with self._gaze_time.get_lock():
                     self._gaze_time.value += self._gaze_queue.get()
@@ -137,13 +155,12 @@ class Proctoring:
                 msg = self._process_queue.get()
                 if isinstance(msg, dict) and msg.get('type') == 'new_process':
                     # Check if this PID existed at start with the same name
-                    initial_name = self._process_entries['initial'].get(msg['pid'])
-                    if initial_name != msg['name']:  # New process or different process with same PID
+                    if msg['name'].lower() not in self._process_entries['initial']:
                         self._process_entries['new'].append((msg['timestamp'], msg['pid'], msg['name']))
                         title = "Process identified"
                         message = f"Warning: Process not allowed during exam identified: {msg['name']}"
-                        self._notify(title, message)
-            time.sleep(0.1)  # Prevent CPU hogging
+                        print(title, message)
+            time.sleep(0.1)
 
     def _notify(self, title, message):
         notification.notify(
@@ -171,6 +188,7 @@ class Proctoring:
 
     def generate_report(self, filename="exam_report.pdf"):
         """Generate a PDF report with exam monitoring results."""
+        print(f"Starting report generation. Process entries: {self._process_entries['new']}")
         c = canvas.Canvas(filename, pagesize=letter)
         width, height = letter
         y = height - inch
@@ -193,7 +211,7 @@ class Proctoring:
         
         # Exam details
         c.setFont("Helvetica", 12)
-        c.drawString(inch, y, f"Exam Start Time: {self._start_time}")
+        c.drawString(inch, y, f"Exam Start Time: {self._start_time}, End Time: {self._end_time}")
         y -= 0.3*inch
         minutes = self._gaze_time.value / 60
         c.drawString(inch, y, f"Total Time Gazing Away: {minutes:.1f} minutes ({self._gaze_time.value:.1f} seconds)")
@@ -212,6 +230,7 @@ class Proctoring:
         y -= 0.3*inch
 
         c.setFont("Helvetica", 10)
+        print(f"Writing {len(self._process_entries['new'])} processes to report")
         for timestamp, pid, name in self._process_entries['new']:
             if y < inch:
                 page += 1
