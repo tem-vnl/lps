@@ -1,6 +1,7 @@
 import argparse
-
+import tkinter as tk
 from proctoring import Proctoring
+from examGUI import ExamGUI
 
 def main():
     parser = argparse.ArgumentParser(prog='LPS', add_help=False)
@@ -13,30 +14,39 @@ def main():
         return
 
     proctoring = Proctoring(demo=args["demo"])
-
-    print("Welcome to the LPS application!\nstart: To start an exam session.\nstop: To end a running exam session.\nexit: To exit the program.")
-
-    while True:
-        command = input("> ")
-        if command == "start":
-            if not proctoring.running:
-                valid, message = proctoring.valid_startup()
-                if valid:
-                    proctoring.start_exam()
-                else:
-                    print(f"Please close the following programs before starting an exam: {message}")
+    
+    # Create GUI
+    root = tk.Tk()
+    app = ExamGUI(root)
+    
+    # Connect buttons to proctoring functions
+    def start_exam():
+        if not proctoring.running:
+            valid, message = proctoring.valid_startup()
+            if valid:
+                proctoring.start_exam()
             else:
-                print("An exam is allready running.")
-        elif command == "stop":
-            if proctoring.running:
-                proctoring.end_exam()
-            else:
-                print("There is no exam running at the moment.")
-        elif command == "exit":
-            if proctoring.running:
-                print("Can't exit with an active exam session.")
-            else:
-                break
+                print(f"Please close the following programs before starting an exam: {message}")
+        else:
+            print("An exam is already running.")
+    
+    def stop_exam():
+        if proctoring.running:
+            proctoring.end_exam()
+        else:
+            print("There is no exam running at the moment.")
+    
+    def exit_app():
+        if not proctoring.running:
+            root.destroy()
+        else:
+            print("Can't exit with an active exam session.")
+    
+    app.start_button.configure(command=start_exam)
+    app.stop_button.configure(command=stop_exam)
+    app.exit_button.configure(command=exit_app)
+    
+    root.mainloop()
 
 if __name__ == "__main__":
     main()
