@@ -1,5 +1,6 @@
 import argparse
 import tkinter as tk
+from tkinter import messagebox
 from proctoring import Proctoring
 from examGUI import ExamGUI
 
@@ -26,21 +27,23 @@ def main():
             if valid:
                 proctoring.start_exam()
             else:
-                print(f"Please close the following programs before starting an exam: {message}")
+                messagebox.showerror("Invalid Startup", 
+                    f"Please close the following programs before starting:\n{message}")
         else:
-            print("An exam is already running.")
+            messagebox.showinfo("Exam Status", "An exam is already running.")
     
     def stop_exam():
         if proctoring.running:
             proctoring.end_exam()
         else:
-            print("There is no exam running at the moment.")
+            messagebox.showinfo("Exam Status", "No exam is currently running.")
     
     def exit_app():
         if not proctoring.running:
             root.destroy()
         else:
-            print("Can't exit with an active exam session.")
+            messagebox.showerror("Cannot Exit", 
+                "Please end the active exam session before exiting.")
     
     app.start_button.configure(command=start_exam)
     app.stop_button.configure(command=stop_exam)
