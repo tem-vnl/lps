@@ -28,6 +28,12 @@ You can then start the application by running:
 poetry run python src
 ```
 
+This repo uses TKinter, make sure that your python version is built with TKinter. This is not standard on many OS. For Linux, you can run the following command to get python with tkinter. Make sure this is also the version in use after installing.
+
+```shell
+sudo apt-get install python3-tk
+```
+
 Need to add any dependencies? Use poetry and do not install or edit dependencies manually.
 
 If you are running into problems with VS Code python interpreter not picking up your poetry environment, please check the [help section](#vs-code-python-interpreter-with-poetry).
