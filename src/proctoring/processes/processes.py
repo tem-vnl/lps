@@ -25,6 +25,9 @@ class ProcessMonitor:
 
             while not self.pid_queue.empty():
                 self.safe_pid.add(self.pid_queue.get())
+
+            if len(self.safe_pid) < 1:
+                continue # Skip process termination if browser session not initialized
             
             if started:
                 for name, pidarray in started.items():
