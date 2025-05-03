@@ -59,6 +59,9 @@ class ProcessMonitor:
             # Update safe PIDs from internal process queue
             while not self.pid_queue.empty():
                 self.safe_pid.add(self.pid_queue.get())
+
+            if len(self.safe_pid) < 1:
+                continue # Skip process termination if browser session not initialized
             
             # Handle newly started processes
             if started:
