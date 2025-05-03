@@ -1,3 +1,7 @@
+"""
+    Main entry point for the LPS (Lightweight Proctoring System) application
+"""
+
 import argparse
 import tkinter as tk
 from tkinter import messagebox
@@ -5,15 +9,24 @@ from proctoring import Proctoring
 from examGUI import ExamGUI
 
 def main():
+    """
+    Main function that initializes the proctoring system and handles user commands.
+    
+    Parses command-line arguments, creates the proctoring object, and runs the
+    command loop for controlling exam sessions.
+    """
+    # Setup command-line argument parser
     parser = argparse.ArgumentParser(prog='LPS', add_help=False)
     parser.add_argument('-h', '--help', help="show this help message and exit", action="store_true")
     parser.add_argument('-d', '--demo', help="run the program in demo mode", action="store_true")
     args = vars(parser.parse_args())
 
+    # Display help if requested and exit
     if args["help"]:
         parser.print_help()
         return
 
+    # Initialize the proctoring system with demo mode if specified
     proctoring = Proctoring(demo=args["demo"])
     
     # Create GUI
@@ -52,4 +65,5 @@ def main():
     root.mainloop()
 
 if __name__ == "__main__":
+    # Execute main function when script is run directly
     main()
