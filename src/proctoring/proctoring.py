@@ -27,11 +27,7 @@ class Proctoring:
         _demo (bool): Whether the program is running in demo mode.
         _manager (Manager): Multiprocessing manager for shared objects.
         _process_entries (dict): Dictionary to track initial and new processes.
-        _gaze_queue (Queue): Queue for receiving gaze monitoring data.
-        _process_queue (Queue): Queue for receiving process monitoring data.
-        _browser_queue (Queue): Queue for sending commands to browser monitor.
-        _internal_pid_queue (Queue): Queue for internal process ID sharing.
-        _stop_monitoring (bool): Flag to control monitoring processes.
+        _queues (dict): Dictionary of queues for handling process messaging.
         _processes (dict): Dictionary of monitoring process objects.
         _time (dict): Dictionary to track timing information.
         running (bool): Indicates whether an exam is currently running.
@@ -57,11 +53,13 @@ class Proctoring:
         })
 
         # Create communication queues for the monitoring processes
-        self._gaze_queue = Queue()
-        self._process_queue = Queue()
-        self._browser_queue = Queue()
-        self._internal_pid_queue = Queue()
-        self._stop_monitoring = False
+        self._queues = {
+            "gaze": Queue(),
+            "process": Queue(),
+            "to_browser": Queue(),
+            "from_browser": Queue(),
+            "internal_pid": Queue()
+        }
 
         # Dictionary to store process objects for different monitoring components
         self._processes = {
@@ -99,31 +97,47 @@ class Proctoring:
         }
         
         # Initialize and start all monitoring processes
-        self._processes["browser"] = Process(target=self._run_browser, args=(self._browser_queue, self._internal_pid_queue,))
-        self._processes["gaze"] = Process(target=self._run_gaze, args=(self._gaze_queue,))
+        self._processes["browser"] = Process(target=self._run_browser, args=(self._queues["to_browser"], self._queues["from_browser"], self._queues["internal_pid"],))
+        self._processes["gaze"] = Process(target=self._run_gaze, args=(self._queues["gaze"],))
         self._processes["gaze_recieve"] = Process(target=self._listen_for_gaze)
-        self._processes["process_monitor"] = Process(target=self._run_process_monitor, args=(self._process_queue,self._internal_pid_queue))
+        self._processes["process_monitor"] = Process(target=self._run_process_monitor, args=(self._queues["process"],self._queues["internal_pid"]))
         self._processes["process_monitor_recieve"] = Process(target=self._listen_for_processes)
 
-        # Start all processes
-        for _, process in self._processes.items():
+        # Start browser process and setup loop for awaiting initial load
+        self._processes["browser"].start()
+        timeout_counter = 0
+        while True:
+            if timeout_counter > 20:
+                print("Exam couldn't be started because of a problem with the browser environment or network.")
+                self.end_exam(True)
+                return
+            timeout_counter += 1
+            try:
+                browser_message = self._queues["from_browser"].get_nowait()
+                if browser_message == "navigated": break
+            except:
+                time.sleep(1)
+        
+        # Start all other test processes
+        for name, process in self._processes.items():
+            if name == "browser": continue
             process.start()
 
         self.running = True
 
-    def end_exam(self):
+    def end_exam(self, force=False):
         """
         Ends an exam session by stopping all monitoring processes.
         
         Records the end time, stops all monitoring processes, and generates
         a report of the exam session.
         """
-        if not self.running: return
+        if not self.running and not force: return
         
         self._time["end"] = datetime.now()
         
         # Send stop signal to browser process
-        self._browser_queue.put("STOP")
+        self._queues["to_browser"].put("STOP")
         time.sleep(1)
 
         # Terminate all monitoring processes
@@ -145,18 +159,18 @@ class Proctoring:
         including remaining gaze and process data.
         """
         # Process any remaining gaze data
-        while not self._gaze_queue.empty():
+        while not self._queues["gaze"].empty():
             try:
-                msg = self._gaze_queue.get_nowait()
+                msg = self._queues["gaze"].get_nowait()
                 with self._time["time"].get_lock():
                     self._time["time"].value += msg
             except:
                 break
 
         # Process any remaining process data
-        while not self._process_queue.empty():
+        while not self._queues["process"].empty():
             try:
-                msg = self._process_queue.get_nowait()
+                msg = self._queues["process"].get_nowait()
                 if isinstance(msg, dict) and msg.get('type') == 'new_process':
                     entry = (msg['timestamp'], msg['pid'], msg['name'])
                     if msg['name'].lower() not in self._process_entries['initial']:
@@ -173,7 +187,7 @@ class Proctoring:
         """
         Gaze(queue, self._demo)
 
-    def _run_browser(self, queue, pid_queue):
+    def _run_browser(self, to_queue, from_queue, pid_queue):
         """
         Starts the browser monitoring component.
         
@@ -181,7 +195,7 @@ class Proctoring:
             queue (Queue): Queue for sending commands to the browser monitor.
             pid_queue (Queue): Queue for sharing internal process IDs.
         """
-        Browser(queue, pid_queue).run()
+        Browser(to_queue, from_queue, pid_queue).run()
 
     def _run_process_monitor(self, queue, pid_queue):
         """
@@ -200,11 +214,11 @@ class Proctoring:
         Monitors time spent looking away from the screen and sends notifications
         when significant time is accumulated.
         """
-        while not self._stop_monitoring:
-            if not self._gaze_queue.empty():
+        while True:
+            if not self._queues["gaze"].empty():
                 # Update the time value with new gaze-away duration
                 with self._time["time"].get_lock():
-                    self._time["time"].value += self._gaze_queue.get()
+                    self._time["time"].value += self._queues["gaze"].get()
                 total_minutes = math.floor(self._time["time"].value / 60)
                 
                 # Send notification when a new minute threshold is crossed
@@ -222,8 +236,8 @@ class Proctoring:
         as potential violations.
         """
         while True:
-            if not self._process_queue.empty():
-                msg = self._process_queue.get()
+            if not self._queues["process"].empty():
+                msg = self._queues["process"].get()
                 if isinstance(msg, dict) and msg.get('type') == 'new_process':
                     # Check if this process is new (wasn't running at start)
                     if msg['name'].lower() not in self._process_entries['initial']:
