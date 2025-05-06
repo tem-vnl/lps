@@ -6,6 +6,9 @@ from multiprocessing import Process, Queue, Value, Manager
 import psutil
 from plyer import notification
 
+import tkinter as tk
+from tkinter import messagebox
+
 """
     Proctoring software class
 """
@@ -108,8 +111,8 @@ class Proctoring:
         timeout_counter = 0
         while True:
             if timeout_counter > 20:
-                print("Exam couldn't be started because of a problem with the browser environment or network.")
-                self.end_exam(True)
+                self._show_error("Start Error", 
+                    "Exam couldn't be started because of a problem with the browser environment or network.")
                 return
             timeout_counter += 1
             try:
@@ -295,3 +298,16 @@ class Proctoring:
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
         return False
+    
+    def _show_error(self, title, message):
+        """
+        Shows an error message box using tkinter.
+        
+        Args:
+            title (str): Title of the error dialog
+            message (str): Error message to display
+        """
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
+        messagebox.showerror(title, message)
+        root.destroy()
