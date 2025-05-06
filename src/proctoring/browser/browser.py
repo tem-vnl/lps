@@ -32,7 +32,7 @@ class Browser:
         _active (bool): Flag indicating whether the browser should continue running.
     """
     
-    def __init__(self, queue=None, pid_queue=None):
+    def __init__(self, to_queue=None, from_queue=None, pid_queue=None):
         """
         Initializes the Browser controller.
         
@@ -40,12 +40,14 @@ class Browser:
         browser and proxy management.
         
         Args:
-            queue (Queue): Queue for receiving commands from the main process.
+            to_queue (Queue): Queue for receiving commands from the main process.
+            from_queue (Queue): Queue for sending status to the main process.
             pid_queue (Queue): Queue for sending process IDs to be excluded from monitoring.
         """
         self.driver = None
         self.mitmdump_proc = None
-        self.queue = queue
+        self.to_queue = to_queue
+        self.from_queue = from_queue
         self.browser_process = None
         self.pid_queue = pid_queue
         self._active = True
@@ -129,12 +131,13 @@ class Browser:
         print("Testing connection...")
         self.driver.get("https://canvas.kth.se")
         print("Navigation successful")
+        self.from_queue.put("navigated")
         
         # Main loop to monitor for stop commands
         while self._active:
-            if self.queue:
+            if self.to_queue:
                 try:
-                    msg = self.queue.get_nowait()
+                    msg = self.to_queue.get_nowait()
                     if msg == "STOP":
                         print("Received stop signal, closing browser...")
                         self._active = False

@@ -10,7 +10,7 @@ import argparse
 import tkinter as tk
 from tkinter import messagebox
 from proctoring import Proctoring
-from examGUI import ExamGUI
+from proctoring.examGUI import ExamGUI
 
 def main():
     """
