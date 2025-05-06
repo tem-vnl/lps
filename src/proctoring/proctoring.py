@@ -112,7 +112,7 @@ class Proctoring:
         while True:
             if timeout_counter > 20:
                 self._show_error("Start Error", 
-                    "Exam couldn't be started because of a problem with the browser environment or network.")
+                    "Exam couldn't start because of a problem with the browser environment or network.")
                 return
             timeout_counter += 1
             try:
