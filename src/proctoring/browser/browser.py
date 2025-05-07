@@ -135,6 +135,8 @@ class Browser:
         
         # Main loop to monitor for stop commands
         while self._active:
+            for p in self.browser_process.children(recursive=True):
+                self.pid_queue.put(p.pid)
             if self.to_queue:
                 try:
                     msg = self.to_queue.get_nowait()
