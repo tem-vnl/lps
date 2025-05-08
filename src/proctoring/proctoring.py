@@ -151,7 +151,7 @@ class Proctoring:
                 self._processes[name] = None
 
         # Generate exam report with collected data
-        Report.generate_report(self._time, list(self._process_entries['new']), "exam_report.pdf")
+        Report.generate_report(self._time, list(self._process_entries['new']), "exam_report")
         self.running = False
 
     def _drain_queues(self):
