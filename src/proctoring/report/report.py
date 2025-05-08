@@ -4,6 +4,7 @@
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
+import os
 
 class Report:
     """
@@ -13,7 +14,7 @@ class Report:
     """
 
     @staticmethod
-    def generate_report(time_data, process_entries, filename="exam_report.pdf"):
+    def generate_report(time_data, process_entries, filename="exam_report"):
         """
         Generate a PDF report with exam monitoring results.
         
@@ -22,8 +23,16 @@ class Report:
             process_entries (list): List of tuples containing process information.
             filename (str): Name of the output PDF file.
         """
+        EXAM_FOLDER = "./exams/"
+
+        # Create folder for reports
+        if not os.path.exists(EXAM_FOLDER):
+            os.makedirs(EXAM_FOLDER)
+        
+        processed_filename = Report.file_name(EXAM_FOLDER, filename, time_data)
+
         # Initialize the PDF canvas with letter size
-        c = canvas.Canvas(filename, pagesize=letter)
+        c = canvas.Canvas(processed_filename, pagesize=letter)
         width, height = letter
         y = height - inch
         page = 1
@@ -101,3 +110,17 @@ class Report:
         y -= inch
         
         return c, y, width, height, page
+    
+    @staticmethod
+    def file_name(path, filename, time_data):
+        timestamped = f"{filename}-{time_data['start'].strftime('%Y%m%d-%H%M%S')}"
+        duplicates = 0
+        extension = ".pdf"
+        fullpath = f"{path}{timestamped}{extension}"
+        while True:
+            if not os.path.exists(fullpath):
+                break
+            else:
+                duplicates += 1
+                fullpath = f"{path}{timestamped}({duplicates}){extension}"
+        return fullpath
